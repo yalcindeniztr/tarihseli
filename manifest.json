@@ -1,0 +1,27 @@
+{
+    "name": "Tarih Yolculuğu: Müze Muhafızları",
+    "short_name": "Tarih Yolculuğu",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#dcdcd7",
+    "theme_color": "#8b7d6b",
+    "description": "Tarihin derinliklerinde bir yolculuğa çıkın. Müzeleri keşfedin, bilmeceleri çözün ve muhafız olun.",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/2316/2316973.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/2316/2316973.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "categories": [
+        "education",
+        "games",
+        "history"
+    ]
+}

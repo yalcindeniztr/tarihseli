@@ -1,0 +1,8 @@
+{
+  "name": "Tarih Yolculuğu (History Journey)",
+  "description": "A photorealistic educational treasure hunt PWA where history questions lead to physical location hints through mathematical riddles.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}
