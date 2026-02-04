@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { Category, UserProfile } from '../types';
 
 // NOTE: Replace these with your actual Firebase project configuration
@@ -14,10 +15,14 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase only if config is present (prevents crash on first run)
-let db: any;
+export let app: any;
+export let db: any;
+export let auth: any;
+
 try {
-  const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   db = getFirestore(app);
+  auth = getAuth(app);
 } catch (e) {
   console.warn("Firebase config missing or invalid. Using local fallback.");
 }
@@ -67,6 +72,27 @@ export const deleteUserFromCloud = async (userId: string): Promise<boolean> => {
   } catch (e) {
     console.error("Firebase Delete Error:", e);
     return false;
+  }
+};
+
+
+
+export const loginWithGoogle = async (): Promise<boolean> => {
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    return true;
+  } catch (error) {
+    console.error("Login Failed:", error);
+    return false;
+  }
+};
+
+export const logout = async (): Promise<void> => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Logout Failed:", error);
   }
 };
 

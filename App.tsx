@@ -9,7 +9,7 @@ import Stats from './components/Stats';
 import VisualBox from './components/VisualBox';
 import ARView from './components/ARView';
 import AdminPanel from './components/AdminPanel';
-import PasswordGate from './components/Admin/PasswordGate';
+import AdminLogin from './components/Admin/AdminLogin';
 import ModeSelector from './components/ModeSelector';
 import CategorySelector from './components/CategorySelector';
 import ProfileDashboard from './components/ProfileDashboard';
@@ -246,7 +246,7 @@ const App: React.FC = () => {
       )}
 
       {isAdminOpen && !isAdminAuthenticated && (
-        <PasswordGate onSuccess={() => setIsAdminAuthenticated(true)} onCancel={() => setIsAdminOpen(false)} />
+        <AdminLogin onSuccess={() => setIsAdminAuthenticated(true)} onCancel={() => setIsAdminOpen(false)} />
       )}
 
       {isAdminOpen && isAdminAuthenticated && (
