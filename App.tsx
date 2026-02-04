@@ -65,10 +65,7 @@ const App: React.FC = () => {
       level: 1,
       xp: 0,
       unlockedKeys: [],
-      friends: [
-        { id: 'f1', name: 'Alp Er Tunga', level: 99, status: 'OFFLINE' },
-        { id: 'f2', name: 'Asena', level: 12, status: 'ONLINE' }
-      ],
+      friends: [],
       guildId: null,
       achievements: ['İLK_ADIM']
     };
@@ -82,10 +79,7 @@ const App: React.FC = () => {
       activeTeamIndex: 0,
       setupComplete: true,
       gameStarted: false,
-      availableGuilds: [
-        { id: 'g1', name: 'Gök Börüleri', members: [], totalScore: 15000 },
-        { id: 'g2', name: 'Anadolu Erenleri', members: [], totalScore: 8200 }
-      ]
+      availableGuilds: []
     });
   };
 

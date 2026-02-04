@@ -44,22 +44,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
     await saveSystemSettings(newSettings);
   };
 
-  // Load Settings from Cloud
-  useEffect(() => {
-    const loadSettings = async () => {
-      const saved = await fetchSystemSettings();
-      if (saved) {
-        setSettings(saved);
-      }
-    };
-    loadSettings();
-  }, []);
 
-  const handleSettingChange = async (key: 'autoSync' | 'maintenanceMode', value: boolean) => {
-    const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
-    await saveSystemSettings(newSettings);
-  };
 
   // Dialog State Management
   const [dialogState, setDialogState] = useState<{
