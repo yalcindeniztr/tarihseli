@@ -1,0 +1,168 @@
+:root {
+  /* Kum Grisi Paleti */
+  --parchment: #dcdcd7;
+  --parchment-dark: #c5c5be;
+  --gold: #8b7d6b;
+  --gold-bright: #b8a99a;
+  --ink: #2b2b28;
+  --turkuaz: #5f7d7e;
+  --stone: #4a4a48;
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  /* Kum grisi dokulu arka plan */
+  background:
+    radial-gradient(circle at center, rgba(220, 220, 215, 0.4) 0%, rgba(180, 180, 175, 0.7) 100%),
+    url('https://www.transparenttextures.com/patterns/natural-paper.png');
+  background-color: var(--parchment-dark);
+  background-size: repeat;
+  background-attachment: fixed;
+  color: var(--ink);
+  overflow-x: hidden;
+}
+
+.font-serif-vintage {
+  font-family: 'Lora', serif;
+}
+
+.font-display {
+  font-family: 'Cinzel', serif;
+}
+
+.parchment-bg {
+  background-color: var(--parchment);
+  background-image: url('https://www.transparenttextures.com/patterns/handmade-paper.png');
+  color: var(--ink);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1), inset 0 0 60px rgba(0, 0, 0, 0.05);
+  border: 2px solid rgba(139, 125, 107, 0.3);
+}
+
+.balbal-stone {
+  background: linear-gradient(145deg, #4a4a48, #2b2b28);
+  background-image: url('https://www.transparenttextures.com/patterns/asfalt-light.png');
+  border: 4px solid var(--gold);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4), inset 0 0 30px rgba(255, 255, 255, 0.1);
+  position: relative;
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.balbal-stone:hover {
+  transform: scale(1.03) translateY(-10px);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 25px rgba(184, 169, 154, 0.4);
+  border-color: var(--gold-bright);
+}
+
+.balbal-stone::before {
+  content: '☪';
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  background: var(--gold-bright);
+  color: var(--ink);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  border: 3px solid white;
+  box-shadow: 0 0 15px rgba(184, 169, 154, 0.8);
+  z-index: 20;
+}
+
+.gold-border {
+  border: 3px solid var(--gold);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.texture-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: url('https://www.transparenttextures.com/patterns/stardust.png');
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+.brass-texture {
+  background: linear-gradient(135deg, #8b7d6b, #b8a99a, #706357, #dcdcd7, #8b7d6b);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--gold);
+}
+
+.ornate-corner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--gold);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.corner-tl {
+  top: 8px;
+  left: 8px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.corner-tr {
+  top: 8px;
+  right: 8px;
+  border-left: none;
+  border-bottom: none;
+}
+
+.corner-bl {
+  bottom: 8px;
+  left: 8px;
+  border-right: none;
+  border-top: none;
+}
+
+.corner-br {
+  bottom: 8px;
+  right: 8px;
+  border-left: none;
+  border-top: none;
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--parchment-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gold);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink);
+}
