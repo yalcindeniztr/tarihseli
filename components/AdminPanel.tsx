@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GameState, RiddleNode, Category, UserProfile } from '../types';
 import { INITIAL_CATEGORIES } from '../constants';
-import { syncCategoriesToCloud, fetchAllUsersFromCloud, deleteUserFromCloud } from '../services/firebase';
+import { syncCategoriesToCloud, fetchAllUsersFromCloud, deleteUserFromCloud, fetchSystemSettings, saveSystemSettings } from '../services/firebase';
 import { clearDatabase } from '../services/db';
 import NodeEditor from './Admin/NodeEditor';
 import { Button, Card, Modal, Badge, IconButton, Input, Switch } from './Admin/MaterialUI';
@@ -23,9 +23,43 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
 
   // System Settings State
   const [settings, setSettings] = useState({
-    autoSync: true,
+    autoSync: false, // Default to false so user notices if it loads true
     maintenanceMode: false
   });
+
+  // Load Settings from Cloud on Mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      const saved = await fetchSystemSettings();
+      if (saved) {
+        setSettings(saved);
+      }
+    };
+    loadSettings();
+  }, [activeTab]); // Reload when tab changes just in case
+
+  const handleSettingChange = async (key: 'autoSync' | 'maintenanceMode', value: boolean) => {
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    await saveSystemSettings(newSettings);
+  };
+
+  // Load Settings from Cloud
+  useEffect(() => {
+    const loadSettings = async () => {
+      const saved = await fetchSystemSettings();
+      if (saved) {
+        setSettings(saved);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleSettingChange = async (key: 'autoSync' | 'maintenanceMode', value: boolean) => {
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    await saveSystemSettings(newSettings);
+  };
 
   // Dialog State Management
   const [dialogState, setDialogState] = useState<{
@@ -414,7 +448,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
                   </div>
                   <Switch
                     checked={settings.autoSync}
-                    onChange={(checked) => setSettings({ ...settings, autoSync: checked })}
+                    onChange={(checked) => handleSettingChange('autoSync', checked)}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -424,7 +458,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
                   </div>
                   <Switch
                     checked={settings.maintenanceMode}
-                    onChange={(checked) => setSettings({ ...settings, maintenanceMode: checked })}
+                    onChange={(checked) => handleSettingChange('maintenanceMode', checked)}
                   />
                 </div>
               </div>

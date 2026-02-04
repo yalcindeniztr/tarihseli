@@ -109,3 +109,34 @@ export const syncUserProfileToCloud = async (user: UserProfile): Promise<void> =
     console.error("Firebase User Sync Error:", e);
   }
 };
+
+export interface SystemSettings {
+  autoSync: boolean;
+  maintenanceMode: boolean;
+}
+
+export const saveSystemSettings = async (settings: SystemSettings): Promise<boolean> => {
+  if (!db) return true;
+  try {
+    await setDoc(doc(db, "system", "settings"), settings);
+    return true;
+  } catch (e) {
+    console.error("Save Settings Error:", e);
+    return false;
+  }
+};
+
+export const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
+  if (!db) return null;
+  try {
+    const docRef = doc(db, "system", "settings");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as SystemSettings;
+    }
+    return null;
+  } catch (e) {
+    console.error("Fetch Settings Error:", e);
+    return null;
+  }
+};
