@@ -1,0 +1,7 @@
+# Proguard Mapping File
+# This is a placeholder for the web-based build.
+# Since this is not a native Android build, explicit symbol mapping is not applicable in the standard sense.
+# However, you can upload this file to Play Console if it insists on a mapping file for compliance.
+
+com.tarihyolculugu.app -> com.tarihyolculugu.app:
+    void main() -> main

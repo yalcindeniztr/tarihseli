@@ -1,6 +1,7 @@
 
 import { Category, QuestStatus } from './types';
 
+// Image URLs updated to be more specific to the context
 export const INITIAL_CATEGORIES: Category[] = [
   {
     id: 'cat-ancient-hun',
@@ -15,7 +16,7 @@ export const INITIAL_CATEGORIES: Category[] = [
         mathLogic: '(rakam_toplamı * 2)',
         mathResult: 22,
         locationHint: 'Okçuluk alanındaki en uzun mesafeli yayın hemen altında.',
-        mapImageUrl: 'https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?q=80&w=1000',
+        mapImageUrl: 'https://images.unsplash.com/photo-1554178286-db414c02b2dc?q=80&w=1000&auto=format&fit=crop', // Archery/Bow
         targetZone: { x: 45, y: 40, radius: 10 },
         rewardKeyId: 'KEY-HUN-1',
         status: QuestStatus.AVAILABLE,
@@ -36,7 +37,7 @@ export const INITIAL_CATEGORIES: Category[] = [
         mathLogic: '(rakam_toplamı + 5)',
         mathResult: 20,
         locationHint: 'Müze girişindeki devasa yazıt kopyasının kaidesinde.',
-        mapImageUrl: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?q=80&w=1000',
+        mapImageUrl: 'https://images.unsplash.com/photo-1605806616949-1e87b487bc2a?q=80&w=1000&auto=format&fit=crop', // Stone/Ancient Text
         targetZone: { x: 60, y: 30, radius: 12 },
         rewardKeyId: 'KEY-GOK-1',
         status: QuestStatus.AVAILABLE,
@@ -57,7 +58,7 @@ export const INITIAL_CATEGORIES: Category[] = [
         mathLogic: '(rakam_toplamı * 3)',
         mathResult: 27,
         locationHint: 'Zırh koleksiyonundaki en görkemli Selçuklu kalkanının arkasında.',
-        mapImageUrl: 'https://images.unsplash.com/photo-1548543604-a87c9909afec?q=80&w=1000',
+        mapImageUrl: 'https://images.unsplash.com/photo-1598556776374-0a37466d3a87?q=80&w=1000&auto=format&fit=crop', // Armor/Shield
         targetZone: { x: 70, y: 20, radius: 15 },
         rewardKeyId: 'KEY-SEL-1',
         status: QuestStatus.AVAILABLE,
@@ -78,7 +79,7 @@ export const INITIAL_CATEGORIES: Category[] = [
         mathLogic: '(rakam_toplamı * 2)',
         mathResult: 26,
         locationHint: 'Fatih’in kılıcının sergilendiği cam bölmenin altında.',
-        mapImageUrl: 'https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?q=80&w=1000',
+        mapImageUrl: 'https://images.unsplash.com/photo-1626278664285-b79560f78083?q=80&w=1000&auto=format&fit=crop', // Sword/Museum
         targetZone: { x: 50, y: 50, radius: 10 },
         rewardKeyId: 'KEY-OTT-1',
         status: QuestStatus.AVAILABLE,
@@ -99,7 +100,7 @@ export const INITIAL_CATEGORIES: Category[] = [
         mathLogic: '(rakam_toplamı * 2)',
         mathResult: 30,
         locationHint: 'Milli Mücadele salonundaki ilk meclis kürsüsünün yanında.',
-        mapImageUrl: 'https://images.unsplash.com/photo-1548543604-a87c9909afec?q=80&w=1000',
+        mapImageUrl: 'https://images.unsplash.com/photo-1577083288073-4530835269af?q=80&w=1000&auto=format&fit=crop', // Parliament/Old Building
         targetZone: { x: 30, y: 60, radius: 10 },
         rewardKeyId: 'KEY-REP-1',
         status: QuestStatus.AVAILABLE,

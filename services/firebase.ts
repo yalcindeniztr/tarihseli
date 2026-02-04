@@ -5,12 +5,12 @@ import { Category, UserProfile } from '../types';
 // NOTE: Replace these with your actual Firebase project configuration
 // You can find these in your Firebase Console -> Project Settings
 const firebaseConfig = {
-  apiKey: "AIzaSyAcbO0T-HKtfPvc707vuCkdEIM3ZCa9W88",
-  authDomain: "tarihoyun-2026.firebaseapp.com",
-  projectId: "tarihoyun-2026",
-  storageBucket: "tarihoyun-2026.firebasestorage.app",
-  messagingSenderId: "496448093079",
-  appId: "1:496448093079:web:2b7869180b1cc4854ea2d2"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase only if config is present (prevents crash on first run)
