@@ -3,16 +3,17 @@ import React, { useState } from 'react';
 import { GameMode } from '../types';
 
 interface ModeSelectorProps {
-  onComplete: (mode: GameMode, names: string[]) => void;
+  onComplete: (mode: GameMode, names: string[], pin: string) => void;
   onBack?: () => void;
 }
 
 const ModeSelector: React.FC<ModeSelectorProps> = ({ onComplete, onBack }) => {
   const [name, setName] = useState('');
+  const [pin, setPin] = useState('');
 
   const handleFinish = () => {
-    if (name.trim()) {
-      onComplete('SOLO', [name.trim()]);
+    if (name.trim() && pin.length >= 6) {
+      onComplete('SOLO', [name.trim()], pin.trim());
     }
   };
 
@@ -28,27 +29,42 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ onComplete, onBack }) => {
         <div className="text-center space-y-8 relative z-10">
           <div className="space-y-2">
             <h1 className="font-display text-2xl text-[#2c1e11] tracking-widest font-black uppercase">İSİM ARŞİVİ</h1>
-            <p className="text-[#8b6508] text-[9px] uppercase tracking-[0.5em] font-bold">KADİM KAYITLAR HAZIRLANIYOR</p>
+            <p className="text-[#8b6508] text-[9px] uppercase tracking-[0.5em] font-bold">KADİM KAYITLAR VE MÜHÜR OLUŞTURMA</p>
           </div>
 
           <div className="space-y-6 max-w-sm mx-auto">
-            <div className="relative">
-              <input
-                type="text"
-                autoFocus
-                placeholder="Muhafız İsmi..."
-                className="w-full bg-white/60 border-b-4 border-[#8b6508] p-4 outline-none text-[#2c1e11] font-display text-lg placeholder:text-stone-300 focus:bg-white/80 transition-all shadow-inner font-black"
-                value={name}
-                onChange={e => setName(e.target.value)}
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl opacity-20">📜</span>
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Muhafız İsmi..."
+                  className="w-full bg-white/60 border-b-4 border-[#8b6508] p-4 outline-none text-[#2c1e11] font-display text-lg placeholder:text-stone-300 focus:bg-white/80 transition-all shadow-inner font-black uppercase"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl opacity-20">📜</span>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="GİZLİ MÜHÜR (PIN)"
+                  className="w-full bg-white/60 border-b-4 border-[#8b6508] p-4 outline-none text-[#2c1e11] font-display text-lg placeholder:text-stone-300 focus:bg-white/80 transition-all shadow-inner font-black uppercase tracking-[0.3em]"
+                  value={pin}
+                  onChange={e => setPin(e.target.value)}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl opacity-20">🔒</span>
+                <p className="text-[9px] text-[#8b6508]/80 text-right mt-1 font-bold">EN AZ 6 KARAKTER (HARF/RAKAM)</p>
+              </div>
             </div>
 
             <div className="pt-4 space-y-4">
               <button
                 onClick={handleFinish}
-                className={`w-full py-5 bg-[#2c1e11] text-stone-100 font-display text-sm tracking-[0.3em] font-black shadow-2xl hover:bg-black transition-all hover:scale-105 active:scale-95 ${!name.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={!name.trim()}
+                className={`w-full py-5 bg-[#2c1e11] text-stone-100 font-display text-sm tracking-[0.3em] font-black shadow-2xl hover:bg-black transition-all hover:scale-105 active:scale-95 ${(!name.trim() || pin.length < 6) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!name.trim() || pin.length < 6}
               >
                 MÜHRÜ BAS VE BAŞLAT
               </button>

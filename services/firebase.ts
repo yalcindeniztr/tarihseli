@@ -84,7 +84,8 @@ export const loginWithGoogle = async (): Promise<boolean> => {
     const email = result.user.email;
 
     // Admin Email Restriction
-    if (email !== 'yalcindeniztr@gmail.com') {
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+    if (email !== adminEmail) {
       await auth.signOut();
       alert("YALNIZCA YETKİLİ ADMİN GİRİŞ YAPABİLİR!");
       return false;
@@ -336,8 +337,9 @@ export const createNewGuild = async (userId: string, username: string, name: str
     const guildId = docRef.id;
     await updateDoc(docRef, { id: guildId });
 
-    // Update User's Guild ID
-    await updateDoc(doc(db, "users", userId), { guildId: guildId });
+
+    // Update User's Guild ID. Use setDoc with merge to ensure it works even if doc is missing/laggy
+    await setDoc(doc(db, "users", userId), { guildId: guildId }, { merge: true });
 
     return guildId;
   } catch (e) {
@@ -345,6 +347,31 @@ export const createNewGuild = async (userId: string, username: string, name: str
     return null;
   }
 };
+
+export const retrieveUserByPin = async (username: string, pin: string): Promise<UserProfile | null> => {
+  if (!db) return null;
+  try {
+    const q = query(collection(db, "users"), where("username", "==", username));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) return null;
+
+    // Find user with matching PIN (client-side filter for simplicity if multiple usernames, though username should be unique-ish)
+    const userDoc = querySnapshot.docs.find(d => {
+      const data = d.data();
+      return data.pin === pin;
+    });
+
+    if (userDoc) {
+      return userDoc.data() as UserProfile;
+    }
+    return null;
+  } catch (e) {
+    console.error("Retrieve User Error:", e);
+    return null;
+  }
+};
+
 
 export const joinGuild = async (userId: string, guildId: string): Promise<boolean> => {
   if (!db) return false;

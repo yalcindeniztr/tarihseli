@@ -238,6 +238,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
           <Button fullWidth variant="outline" onClick={() => onClose()} startIcon="👁️">
             Oyuna Dön (Siteyi Gör)
           </Button>
+          <Button
+            fullWidth
+            variant="danger"
+            onClick={() => {
+              sessionStorage.removeItem('ADMIN_AUTH');
+              sessionStorage.removeItem('ADMIN_OPEN');
+              window.location.reload();
+            }}
+            startIcon="🔒"
+          >
+            Güvenli Çıkış
+          </Button>
         </div>
       </aside>
 

@@ -104,6 +104,7 @@ export interface UserProfile {
   friends: Friend[];
   guildId: string | null;
   achievements: string[];
+  pin?: string; // 6-char secure PIN
   lastActiveAt?: number;
 }
 

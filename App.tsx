@@ -14,34 +14,34 @@ import ModeSelector from './components/ModeSelector';
 import CategorySelector from './components/CategorySelector';
 import ProfileDashboard from './components/ProfileDashboard';
 import InviteManager from './components/Duel/InviteManager';
+import UserLogin from './components/UserLogin';
 
 import TermsModal from './components/TermsModal';
+
+type AppView = 'LANDING' | 'CREATE_PROFILE' | 'AUTH' | 'PROFILE' | 'ARCHIVE' | 'GAME' | 'ADMIN_LOGIN' | 'ADMIN_PANEL';
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedNode, setSelectedNode] = useState<RiddleNode | null>(null);
   const [isARActive, setIsARActive] = useState(false);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
-  const [view, setView] = useState<'LANDING' | 'CREATE_PROFILE' | 'AUTH'>('LANDING');
   const [invites, setInvites] = useState<Invite[]>([]);
   const [duelSession, setDuelSession] = useState<DuelSession | null>(null);
 
+  // Unified Navigation State
+  const [view, setView] = useState<AppView>('LANDING');
+
   // --- Admin Persistence ---
   useEffect(() => {
-    const savedAdminOpen = sessionStorage.getItem('ADMIN_OPEN') === 'true';
     const savedAdminAuth = sessionStorage.getItem('ADMIN_AUTH') === 'true';
-    if (savedAdminOpen) setIsAdminOpen(true);
     if (savedAdminAuth) setIsAdminAuthenticated(true);
   }, []);
 
   useEffect(() => {
-    sessionStorage.setItem('ADMIN_OPEN', isAdminOpen.toString());
     sessionStorage.setItem('ADMIN_AUTH', isAdminAuthenticated.toString());
-  }, [isAdminOpen, isAdminAuthenticated]);
+  }, [isAdminAuthenticated]);
   // --------------------------
 
   // Check Terms Acceptance on Mount
@@ -83,13 +83,16 @@ const App: React.FC = () => {
         mode: 'DUEL',
         teams: [team1, team2],
         activeTeamIndex: 0,
-        gameStarted: false,
         activeCategoryId: null,
         activeDuelId: duelId,
         activeWager: wager
       };
     });
     setInvites([]);
+    setView('GAME'); // Switch to game view? Or Archive to pick category? 
+    // Usually start with Archive to pick category if not set activeCategoryId
+    // But logic below suggests activeCategoryId is null so we need to pick.
+    setView('ARCHIVE');
     alert(`⚔️ ${invite.fromName} ile düello başladı! İddia: ${wager} XP. Başarılar!`);
   };
 
@@ -108,12 +111,7 @@ const App: React.FC = () => {
         setGameState(prev => {
           if (!prev || !prev.user) return prev;
 
-          const isPlayer1 = session.player1.id === prev.user.id;
           const updatedTeams = [...prev.teams];
-
-          // Index 0 is always the "other" team in display if we follow the accepting logic, 
-          // let's be more robust: find team by name/id
-          // For simplicity, let's update players by ID matching
           const p1TeamIdx = prev.teams.findIndex(t => t.name === session.player1.name);
           const p2TeamIdx = prev.teams.findIndex(t => t.name === session.player2.name);
 
@@ -154,8 +152,7 @@ const App: React.FC = () => {
               activeDuelId: null,
               activeWager: null,
               gameStarted: false,
-              setupComplete: true,
-              isArchiveOpen: true
+              setupComplete: true
             };
           }
 
@@ -198,19 +195,12 @@ const App: React.FC = () => {
       const allGuilds = await fetchAllGuilds();
       const allUsers = await fetchAllUsersFromCloud();
 
-      let myGuild = null;
-      if (gameState.user.guildId) {
-        myGuild = await fetchGuildDetails(gameState.user.guildId);
-      }
-
       setGameState(prev => {
         if (!prev) return prev;
         return {
           ...prev,
           availableGuilds: allGuilds,
           allUsers: allUsers,
-          // Update nested guild if we want or just let Profile handle it? 
-          // Let's keep it in availableGuilds and let UI filter.
         };
       });
     };
@@ -231,13 +221,17 @@ const App: React.FC = () => {
       try {
         const saved = await loadGameState();
         if (saved) {
-          // Always start on Landing Page, even if state was saved during a game
-          setGameState({
-            ...saved,
-            setupComplete: true, // We have a user
-            isArchiveOpen: false, // But archive list is closed
-            gameStarted: false
-          });
+          // Verify user exists
+          if (saved.user) {
+            setGameState({
+              ...saved,
+              setupComplete: true,
+              gameStarted: false
+            });
+            setView('LANDING'); // Start at Landing
+          } else {
+            setView('LANDING');
+          }
         }
       } catch (e) {
         console.error("Veritabanı Hatası:", e);
@@ -284,14 +278,14 @@ const App: React.FC = () => {
         teams: [team],
         activeTeamIndex: 0,
         setupComplete: true,
-        isArchiveOpen: false,
         gameStarted: false,
         availableGuilds: []
       });
+      // If admin authenticated, usually they want internal access, but let's stick to Landing for nav
     }
   }, [isAdminAuthenticated, gameState]);
 
-  const handleSetupComplete = (mode: GameMode, names: string[]) => {
+  const handleSetupComplete = (mode: GameMode, names: string[], pin: string) => {
     const currentCategories = gameState?.categories && gameState.categories.length > 0
       ? gameState.categories
       : INITIAL_CATEGORIES;
@@ -308,7 +302,8 @@ const App: React.FC = () => {
       unlockedKeys: [],
       friends: [],
       guildId: null,
-      achievements: ['İLK_ADIM']
+      achievements: ['İLK_ADIM'],
+      pin: pin // Set the PIN
     };
 
     setGameState({
@@ -325,10 +320,12 @@ const App: React.FC = () => {
       teams,
       activeTeamIndex: 0,
       setupComplete: true,
-      isArchiveOpen: true, // Auto-open for new users
       gameStarted: false,
       availableGuilds: []
     });
+
+    // Auto open archive for new user to start playing
+    setView('ARCHIVE');
   };
 
   const handleCategorySelect = (subTopicId: string) => {
@@ -378,9 +375,11 @@ const App: React.FC = () => {
         activeSubTopicId: subTopicId,
         gameStarted: true
       });
+      setView('GAME');
     } else {
-      // Fallback for flat categories if needed
+      // Fallback
       setGameState(prev => prev ? ({ ...prev, activeCategoryId: subTopicId, gameStarted: true }) : null);
+      setView('GAME');
     }
   };
 
@@ -470,6 +469,102 @@ const App: React.FC = () => {
     );
   }
 
+  // --- RENDERING VIEWS ---
+
+  // 1. ADMIN PANEL VIEW
+  if (view === 'ADMIN_PANEL' && isAdminAuthenticated && gameState) {
+    return (
+      <AdminPanel
+        gameState={gameState}
+        setGameState={setGameState}
+        onClose={() => setView('LANDING')}
+      />
+    );
+  }
+
+  // 2. PROFILE VIEW
+  if (view === 'PROFILE' && gameState?.user) {
+    return (
+      <ProfileDashboard
+        user={gameState.user}
+        guild={gameState.availableGuilds?.find(g => g.id === gameState.user?.guildId) || null}
+        onDeleteProfile={() => { clearDatabase(); window.location.reload(); }}
+        onBack={() => setView('LANDING')}
+        onAdminAccess={() => { }} // Disabled quick access from here to keep UI clean, or re-enable if needed
+      />
+    );
+  }
+
+  // 3. ARCHIVE (CATEGORY SELECTOR) VIEW
+  if (view === 'ARCHIVE' && gameState) {
+    return (
+      <CategorySelector
+        eras={gameState.eras || INITIAL_ERAS}
+        onSelect={handleCategorySelect}
+        onBack={() => setView('LANDING')}
+      />
+    );
+  }
+
+  // 4. GAME VIEW
+  if (view === 'GAME' && gameState) {
+    return (
+      <div className="min-h-screen flex flex-col relative overflow-x-hidden bg-[#dcdcd7]">
+        <header className="relative z-20 text-center mb-10 flex justify-between items-center pt-4 px-6 md:px-12">
+          <button
+            onClick={() => setView('ARCHIVE')} // Back to Archive selection
+            className="px-6 py-2 border-2 border-[#8b7d6b] text-[#8b7d6b] text-[10px] tracking-[0.3em] font-black rounded-sm uppercase bg-white/40 hover:bg-white/60"
+          >
+            ← ARŞİV
+          </button>
+          <h1 className="font-display text-2xl tracking-[0.2em] text-[#8b7d6b] font-black">
+            {gameState.categories.find(c => c.id === gameState.activeCategoryId)?.name.toUpperCase()}
+          </h1>
+          <div className="w-24" />
+        </header>
+
+        <main className="flex-grow p-6 max-w-screen-xl mx-auto w-full">
+          <Stats
+            teams={gameState.teams}
+            activeTeamIndex={gameState.activeTeamIndex}
+            totalNodes={gameState.categories.find(c => c.id === gameState.activeCategoryId)?.nodes.length || 0}
+            isMyTurn={gameState.mode === 'DUEL' ? (duelSession?.currentTurnUserId === gameState.user?.id) : true}
+          />
+          <div className="grid grid-cols-2 gap-x-12 gap-y-24 my-12 justify-items-center">
+            {gameState.categories.find(c => c.id === gameState.activeCategoryId)?.nodes.map(node => (
+              <VisualBox key={node.id} node={node} isActive={selectedNode?.id === node.id} onClick={setSelectedNode} />
+            ))}
+          </div>
+        </main>
+
+        {/* Modal Logic for Game */}
+        {selectedNode && (
+          <div className="fixed inset-0 z-[100] bg-[#dcdcd7]/80 backdrop-blur-md flex items-center justify-center p-4 md:p-12 overflow-y-auto">
+            <div className="w-full md:w-[75vw] lg:w-[70vw] max-w-5xl relative my-auto animate-in zoom-in duration-500">
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="absolute -top-12 md:-top-16 right-0 text-[#8b7d6b] font-display text-xs tracking-widest uppercase font-bold hover:text-black transition-colors"
+              >
+                KAPAT [×]
+              </button>
+              <MysteryBox
+                node={selectedNode}
+                onSuccess={() => {
+                  setSelectedNode(null); // Close modal first
+                  setIsARActive(true);
+                }}
+              />
+            </div>
+          </div>
+        )}
+        {isARActive && selectedNode && (
+          <ARView rewardId={selectedNode.rewardKeyId} onCollect={handleCollectReward} />
+        )}
+      </div>
+    );
+  }
+
+  // 5. LANDING / AUTH / CREATE PROFILE
   return (
     <div className="min-h-screen flex flex-col relative overflow-x-hidden bg-[#dcdcd7]">
       <TermsModal isOpen={showTerms} onAccept={handleTermsAccept} />
@@ -477,165 +572,113 @@ const App: React.FC = () => {
 
       <div className="flex-grow flex flex-col p-6 max-w-screen-sm mx-auto w-full relative z-10">
 
-        {/* Landing / Home / Auth Screens */}
-        {(!gameState?.gameStarted) ? (
-          <div className="flex flex-col items-center py-12 space-y-12">
-            <div className="text-center select-none cursor-pointer" onClick={(e) => {
-              if (e.detail === 3) setIsAdminOpen(true);
-            }}>
-              <h1 className="font-display text-5xl text-[#8b7d6b] font-black tracking-widest drop-shadow-md">KADİM ARŞİV</h1>
-              <p className="text-stone-500 font-bold uppercase text-[12px] tracking-[0.6em] mt-3">Müze Muhafızları Toplanıyor</p>
+        {/* Hidden Admin Trigger */}
+        <div className="flex flex-col items-center py-12 space-y-12">
+          <div className="text-center select-none cursor-pointer" onClick={(e) => {
+            if (e.detail === 3) setView('ADMIN_LOGIN');
+          }}>
+            <h1 className="font-display text-5xl text-[#8b7d6b] font-black tracking-widest drop-shadow-md">KADİM ARŞİV</h1>
+            <p className="text-stone-500 font-bold uppercase text-[12px] tracking-[0.6em] mt-3">Müze Muhafızları Toplanıyor</p>
+          </div>
+
+          {view === 'LANDING' ? (
+            <div className="flex flex-col gap-6 w-full max-w-sm animate-in fade-in slide-in-from-bottom-8 duration-700">
+
+              {gameState?.user ? (
+                // Logged In Options
+                <>
+                  <div className="bg-[#8b7d6b]/10 p-6 rounded-sm border border-[#8b7d6b]/30 text-center mb-4">
+                    <span className="text-4xl block mb-2">💂</span>
+                    <span className="text-[#8b7d6b] font-display text-lg font-black uppercase tracking-widest">{gameState.user.username}</span>
+                    <p className="text-[10px] text-stone-500 uppercase font-bold mt-1">Hoş Geldin, Muhafız</p>
+                  </div>
+
+                  <button
+                    onClick={() => setView('ARCHIVE')}
+                    className="w-full py-6 bg-[#8b7d6b] text-white font-display text-sm tracking-[0.4em] font-black shadow-xl hover:bg-black transition-all hover:scale-105"
+                  >
+                    🏺 ARŞİVE GİR
+                  </button>
+
+                  <button
+                    onClick={() => setView('PROFILE')}
+                    className="w-full py-5 border-2 border-[#8b7d6b] text-[#8b7d6b] font-display text-sm tracking-[0.4em] font-black hover:bg-[#8b7d6b] hover:text-white transition-all"
+                  >
+                    👤 PROFİLİM
+                  </button>
+
+                  {isAdminAuthenticated && (
+                    <button
+                      onClick={() => setView('ADMIN_PANEL')}
+                      className="w-full py-3 bg-red-900/10 text-red-900 font-display text-[10px] tracking-[0.4em] font-black uppercase hover:bg-red-900 hover:text-white transition-all"
+                    >
+                      ⚡ YÖNETİCİ PANELİ
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => { setGameState(null); setView('LANDING'); }}
+                    className="w-full py-3 text-stone-400 font-display text-[9px] tracking-[0.5em] font-black uppercase hover:text-red-800 transition-colors"
+                  >
+                    [ ÇIKIŞ YAP / SIFIRLA ]
+                  </button>
+                </>
+              ) : (
+                // Guest / Not Logged In Options
+                <>
+                  <div className="text-center font-serif-vintage italic text-stone-600 mb-2">
+                    Muhafız, önce ismini kadim kitaba yazdırmalısın...
+                  </div>
+
+                  <button
+                    onClick={() => setView('CREATE_PROFILE')}
+                    className="w-full py-6 bg-[#8b7d6b] text-white font-display text-sm tracking-[0.4em] font-black shadow-xl hover:bg-black transition-all hover:scale-105 border-b-4 border-[#5f5448]"
+                  >
+                    🏰 PROFİL OLUŞTUR
+                  </button>
+
+                  <button
+                    onClick={() => setView('AUTH')}
+                    className="w-full py-6 border-2 border-[#8b7d6b] text-[#8b7d6b] font-display text-sm tracking-[0.4em] font-black hover:bg-[#8b7d6b] hover:text-white transition-all bg-white/40"
+                  >
+                    📜 PROFİL GİRİŞİ
+                  </button>
+                </>
+              )}
             </div>
+          ) : view === 'CREATE_PROFILE' ? (
+            <ModeSelector onComplete={handleSetupComplete} onBack={() => setView('LANDING')} />
+          ) : view === 'AUTH' ? (
+            <UserLogin onSuccess={(user) => {
+              // Reconstruct basic game state for the logged-in user
+              const teams: TeamProgress[] = [{
+                name: user.username, currentStage: 0, unlockedKeys: [], score: 0
+              }];
 
-            {view === 'LANDING' ? (
-              <div className="flex flex-col gap-6 w-full max-w-sm animate-in fade-in slide-in-from-bottom-8 duration-700">
-
-                {gameState?.user ? (
-                  // Logged In Options
-                  <>
-                    <div className="bg-[#8b7d6b]/10 p-6 rounded-sm border border-[#8b7d6b]/30 text-center mb-4">
-                      <span className="text-4xl block mb-2">💂</span>
-                      <span className="text-[#8b7d6b] font-display text-lg font-black uppercase tracking-widest">{gameState.user.username}</span>
-                      <p className="text-[10px] text-stone-500 uppercase font-bold mt-1">Hoş Geldin, Muhafız</p>
-                    </div>
-
-                    <button
-                      onClick={() => setGameState(prev => prev ? ({ ...prev, gameStarted: false, isArchiveOpen: true }) : null)}
-                      className="w-full py-6 bg-[#8b7d6b] text-white font-display text-sm tracking-[0.4em] font-black shadow-xl hover:bg-black transition-all hover:scale-105"
-                    >
-                      🏺 ARŞİVE GİR
-                    </button>
-
-                    <button
-                      onClick={() => setIsProfileOpen(true)}
-                      className="w-full py-5 border-2 border-[#8b7d6b] text-[#8b7d6b] font-display text-sm tracking-[0.4em] font-black hover:bg-[#8b7d6b] hover:text-white transition-all"
-                    >
-                      👤 PROFİLİM
-                    </button>
-
-                    <button
-                      onClick={() => { setGameState(null); setView('LANDING'); }}
-                      className="w-full py-3 text-stone-400 font-display text-[9px] tracking-[0.5em] font-black uppercase hover:text-red-800 transition-colors"
-                    >
-                      [ ÇIKIŞ YAP / SIFIRLA ]
-                    </button>
-                  </>
-                ) : (
-                  // Guest / Not Logged In Options
-                  <>
-                    <div className="text-center font-serif-vintage italic text-stone-600 mb-2">
-                      "Muhafız, önce ismini kadim kitaba yazdırmalısın..."
-                    </div>
-
-                    <button
-                      onClick={() => setView('CREATE_PROFILE')}
-                      className="w-full py-6 bg-[#8b7d6b] text-white font-display text-sm tracking-[0.4em] font-black shadow-xl hover:bg-black transition-all hover:scale-105 border-b-4 border-[#5f5448]"
-                    >
-                      🏰 PROFİL OLUŞTUR
-                    </button>
-
-                    <button
-                      onClick={() => setView('AUTH')}
-                      className="w-full py-6 border-2 border-[#8b7d6b] text-[#8b7d6b] font-display text-sm tracking-[0.4em] font-black hover:bg-[#8b7d6b] hover:text-white transition-all bg-white/40"
-                    >
-                      📜 PROFİL GİRİŞİ
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : view === 'CREATE_PROFILE' ? (
-              <ModeSelector onComplete={handleSetupComplete} onBack={() => setView('LANDING')} />
-            ) : view === 'AUTH' ? (
-              <AdminLogin onSuccess={() => { setIsAdminAuthenticated(true); setView('LANDING'); }} onCancel={() => setView('LANDING')} />
-            ) : null}
-
-            {/* Category Selector Overlaid when active and user exists */}
-            {gameState?.isArchiveOpen && !gameState.gameStarted && (
-              <CategorySelector
-                eras={gameState.eras || INITIAL_ERAS}
-                onSelect={handleCategorySelect}
-                onBack={() => setGameState(prev => prev ? ({ ...prev, isArchiveOpen: false }) : null)}
-              />
-            )}
-          </div>
-        ) : (
-          <>
-            {/* Oyun Ekranı */}
-            <header className="relative z-20 text-center mb-10 flex justify-between items-center pt-4">
-              <button
-                onClick={() => setGameState(p => p ? ({ ...p, gameStarted: false }) : p)}
-                className="px-6 py-2 border-2 border-[#8b7d6b] text-[#8b7d6b] text-[10px] tracking-[0.3em] font-black rounded-sm uppercase bg-white/40 hover:bg-white/60"
-              >
-                ← ARŞİV
-              </button>
-              <h1 className="font-display text-2xl tracking-[0.2em] text-[#8b7d6b] font-black">
-                {gameState.categories.find(c => c.id === gameState.activeCategoryId)?.name.toUpperCase()}
-              </h1>
-              <div className="w-24" />
-            </header>
-
-            <main className="flex-grow">
-              <Stats
-                teams={gameState.teams}
-                activeTeamIndex={gameState.activeTeamIndex}
-                totalNodes={gameState.categories.find(c => c.id === gameState.activeCategoryId)?.nodes.length || 0}
-                isMyTurn={gameState.mode === 'DUEL' ? (duelSession?.currentTurnUserId === gameState.user?.id) : true}
-              />
-              <div className="grid grid-cols-2 gap-x-12 gap-y-24 my-12 justify-items-center">
-                {gameState.categories.find(c => c.id === gameState.activeCategoryId)?.nodes.map(node => (
-                  <VisualBox key={node.id} node={node} isActive={selectedNode?.id === node.id} onClick={setSelectedNode} />
-                ))}
-              </div>
-            </main>
-          </>
-        )}
-      </div>
-
-      {/* Overlays */}
-      {selectedNode && (
-        <div className="fixed inset-0 z-[100] bg-[#dcdcd7]/80 backdrop-blur-md flex items-center justify-center p-4 md:p-12 overflow-y-auto">
-          <div className="w-full md:w-[75vw] lg:w-[70vw] max-w-5xl relative my-auto animate-in zoom-in duration-500">
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="absolute -top-12 md:-top-16 right-0 text-[#8b7d6b] font-display text-xs tracking-widest uppercase font-bold hover:text-black transition-colors"
-            >
-              KAPAT [×]
-            </button>
-            <MysteryBox
-              node={selectedNode}
-              onSuccess={() => {
-                setSelectedNode(null); // Close modal first to reveal AR/Progress
-                setIsARActive(true);
-              }}
-            />
-          </div>
+              setGameState({
+                user: user,
+                categories: INITIAL_CATEGORIES,
+                eras: INITIAL_ERAS,
+                activeCategoryId: null,
+                activeEraId: null,
+                activeTopicId: null,
+                activeSubTopicId: null,
+                activeDuelId: null,
+                activeWager: null,
+                mode: 'SINGLE',
+                teams: teams,
+                activeTeamIndex: 0,
+                setupComplete: true,
+                gameStarted: false,
+                availableGuilds: []
+              });
+              setView('LANDING');
+            }} onCancel={() => setView('LANDING')} />
+          ) : view === 'ADMIN_LOGIN' ? (
+            <AdminLogin onSuccess={() => { setIsAdminAuthenticated(true); setView('ADMIN_PANEL'); }} onCancel={() => setView('LANDING')} />
+          ) : null}
         </div>
-      )}
-
-      {isProfileOpen && gameState?.user && (
-        <ProfileDashboard
-          user={gameState.user}
-          guild={gameState.availableGuilds?.find(g => g.id === gameState.user?.guildId) || null}
-          onDeleteProfile={() => { clearDatabase(); window.location.reload(); }}
-          onBack={() => setIsProfileOpen(false)}
-        />
-      )}
-
-      {isARActive && selectedNode && (
-        <ARView rewardId={selectedNode.rewardKeyId} onCollect={handleCollectReward} />
-      )}
-
-      {isAdminOpen && !isAdminAuthenticated && (
-        <AdminLogin onSuccess={() => setIsAdminAuthenticated(true)} onCancel={() => setIsAdminOpen(false)} />
-      )}
-
-      {isAdminOpen && isAdminAuthenticated && (
-        <AdminPanel
-          gameState={gameState}
-          setGameState={setGameState}
-          onClose={() => setIsAdminOpen(false)} // Keep authentication active
-        />
-      )}
+      </div>
     </div>
   );
 };
