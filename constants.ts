@@ -12,15 +12,81 @@ export const INITIAL_CATEGORIES: Category[] = [
         id: 'node-hun-1',
         title: 'Mete Han ve Islıklı Oklar',
         historyQuestion: 'Onluk sistemi kuran Mete Han, Asya Hun Devleti tahtına hangi yıl geçmiştir?',
+        questionType: 'YEAR',
         correctYear: 209,
         mathLogic: '(rakam_toplamı * 2)',
+        unlockType: 'MATH',
         mathResult: 22,
         locationHint: 'Okçuluk alanındaki en uzun mesafeli yayın hemen altında.',
-        mapImageUrl: 'https://images.unsplash.com/photo-1554178286-db414c02b2dc?q=80&w=1000&auto=format&fit=crop', // Archery/Bow
+        mapImageUrl: 'https://images.unsplash.com/photo-1554178286-db414c02b2dc?q=80&w=1000&auto=format&fit=crop',
         targetZone: { x: 45, y: 40, radius: 10 },
         rewardKeyId: 'KEY-HUN-1',
         status: QuestStatus.AVAILABLE,
         order: 0
+      },
+      {
+        id: 'node-hun-2',
+        title: 'Hun Savaş Sanatı',
+        historyQuestion: 'Hun ordusunun en etkili ve psikolojik üstünlük sağlayan silahı hangisidir?',
+        questionType: 'MULTIPLE_CHOICE',
+        options: ['Mızrak', 'Islıklı Ok', 'Gürz', 'Kılıç'],
+        correctAnswer: 'Islıklı Ok',
+        // Dummy values for type safety
+        correctYear: 0,
+
+        mathLogic: 'Hangi sandığı açmalısın?',
+        unlockType: 'MULTIPLE_CHOICE',
+        unlockOptions: ['Mavi Sandık', 'Kırmızı Kutu', 'Altın Kese', 'Demir Kasa'],
+        unlockAnswer: 'Altın Kese',
+        mathResult: 0,
+
+        locationHint: 'Silah müzesinin girişindeki vitrinde.',
+        mapImageUrl: 'https://images.unsplash.com/photo-1598556776374-0a37466d3a87?q=80&w=1000&auto=format&fit=crop',
+        targetZone: { x: 30, y: 50, radius: 15 },
+        rewardKeyId: 'KEY-HUN-2',
+        status: QuestStatus.LOCKED,
+        order: 1
+      },
+      {
+        id: 'node-hun-3',
+        title: 'Bozkırın Hükümdarı',
+        historyQuestion: 'Mete Han\'ın babasının adı nedir? (Sadece isim)',
+        questionType: 'TEXT',
+        correctAnswer: 'Teoman',
+        correctYear: 0,
+
+        mathLogic: 'Şifre: BOZKIR (Tersi nedir?)',
+        unlockType: 'TEXT',
+        unlockAnswer: 'RIKZOB',
+        mathResult: 0,
+
+        locationHint: 'Saltanat çadırının girişindeki direğin dibinde.',
+        mapImageUrl: 'https://images.unsplash.com/photo-1533669955142-6a73332af4db?q=80&w=1000&auto=format&fit=crop',
+        targetZone: { x: 60, y: 60, radius: 12 },
+        rewardKeyId: 'KEY-HUN-3',
+        status: QuestStatus.LOCKED,
+        order: 2
+      },
+      {
+        id: 'node-hun-4',
+        title: 'Tarihin Seyri (Video)',
+        historyQuestion: 'Videodaki savaş Hunların en büyük zaferlerinden biridir. Hangi Çin hanedanına karşı kazanılmıştır?',
+        mediaUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', // Placeholder
+        questionType: 'MULTIPLE_CHOICE',
+        options: ['Han Hanedanı', 'Ming Hanedanı', 'Tang Hanedanı', 'Song Hanedanı'],
+        correctAnswer: 'Han Hanedanı',
+        correctYear: 0,
+
+        mathLogic: '(5 + 3) * 2 = ?',
+        unlockType: 'MATH',
+        mathResult: 16,
+
+        locationHint: 'Sinema salonunun çıkış kapısında.',
+        mapImageUrl: 'https://images.unsplash.com/photo-1461301214746-1e790926d323?q=80&w=1000&auto=format&fit=crop',
+        targetZone: { x: 80, y: 20, radius: 20 },
+        rewardKeyId: 'KEY-HUN-4',
+        status: QuestStatus.LOCKED,
+        order: 3
       }
     ]
   },

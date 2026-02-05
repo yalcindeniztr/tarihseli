@@ -28,19 +28,36 @@ export interface DuelSession {
   moves: { userId: string; nodeId: string; timestamp: number }[];
 }
 
+
+export type QuestionType = 'YEAR' | 'TEXT' | 'MULTIPLE_CHOICE';
+export type UnlockType = 'MATH' | 'TEXT' | 'MULTIPLE_CHOICE';
+
 export interface RiddleNode {
   id: string;
   title: string;
+  order: number;
+  status: QuestStatus;
+
+  // Question Part
+  questionType?: QuestionType; // Defaults to 'YEAR' if undefined
   historyQuestion: string;
-  correctYear: number;
-  mathLogic: string;
-  mathResult: number;
-  locationHint: string;
+  mediaUrl?: string; // YouTube or Image URL
+  options?: string[]; // For Multiple Choice
+  correctAnswer?: string; // Unified answer field. If questionType is YEAR, this can store the stringified year or we use correctYear.
+  correctYear: number; // Keep for backward compatibility
+
+  // Unlock Part
+  unlockType?: UnlockType; // Defaults to 'MATH' if undefined
+  mathLogic: string; // Question text for unlock
+  unlockOptions?: string[];
+  unlockAnswer?: string; // Unified unlock answer
+  mathResult: number; // Keep for backward compatibility
+
+  // Visuals
   mapImageUrl: string;
   targetZone: { x: number, y: number, radius: number };
+  locationHint: string;
   rewardKeyId: string;
-  status: QuestStatus;
-  order: number;
 }
 
 
