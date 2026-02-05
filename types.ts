@@ -85,13 +85,21 @@ export interface Era {
   order: number;
 }
 
-// Deprecated: Old Category interface for backward compatibility if needed, 
-// but we will primarily use Era -> Topic -> SubTopic
+// New Period interface for 3-level hierarchy: Category -> Period -> Nodes
+export interface Period {
+  id: string;
+  name: string;
+  description?: string;
+  nodes: RiddleNode[];
+}
+
+// Updated Category interface to support hierarchy
 export interface Category {
   id: string;
   name: string;
   description: string;
-  nodes: RiddleNode[];
+  periods: Period[]; // Hierarchical structure
+  nodes: RiddleNode[]; // Maintained for backward compatibility/root questions, but UI will prefer 'periods'
 }
 
 export interface Friend {
@@ -140,6 +148,7 @@ export interface GameState {
   categories: Category[]; // Keep for legacy support if needed initially
   eras: Era[]; // New structure
   activeCategoryId: string | null; // Keep for legacy
+  activePeriodId: string | null; // NEW: For hierarchy support
   activeEraId: string | null;
   activeTopicId: string | null;
   activeSubTopicId: string | null;

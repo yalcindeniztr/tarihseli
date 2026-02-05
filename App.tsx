@@ -72,14 +72,8 @@ const App: React.FC = () => {
   // ----------------------------------
 
   // --- Admin Persistence ---
-  useEffect(() => {
-    const savedAdminAuth = sessionStorage.getItem('ADMIN_AUTH') === 'true';
-    if (savedAdminAuth) setIsAdminAuthenticated(true);
-  }, []);
-
-  useEffect(() => {
-    sessionStorage.setItem('ADMIN_AUTH', isAdminAuthenticated.toString());
-  }, [isAdminAuthenticated]);
+  // REMOVED: Insecure auto-login logic removed. 
+  // Admin must always login via PIN for security (Master Pro standard).
   // --------------------------
 
   // Check Terms Acceptance on Mount
@@ -326,6 +320,7 @@ const App: React.FC = () => {
       categories: currentCategories,
       eras: INITIAL_ERAS,
       activeCategoryId: null,
+      activePeriodId: null,
       activeEraId: null,
       activeTopicId: null,
       activeSubTopicId: null,
@@ -372,6 +367,7 @@ const App: React.FC = () => {
         id: foundSubTopic.id,
         name: foundSubTopic.name,
         description: foundTopic?.name || '',
+        periods: [],
         nodes: foundSubTopic.nodes
       };
 
@@ -386,6 +382,7 @@ const App: React.FC = () => {
         categories: updatedCategories,
         eras: erasToSearch,
         activeCategoryId: subTopicId,
+        activePeriodId: null, // Reset Period on new Category selection
         activeEraId: foundEra?.id || null,
         activeTopicId: foundTopic?.id || null,
         activeSubTopicId: subTopicId,
@@ -548,33 +545,82 @@ const App: React.FC = () => {
 
   // 4. GAME VIEW
   if (view === 'GAME' && gameState) {
+    const activeCategory = gameState.categories.find(c => c.id === gameState.activeCategoryId);
+    const activePeriod = activeCategory?.periods?.find(p => p.id === gameState.activePeriodId);
+
+    // Determine Mode: Period Selection vs Node Map
+    const showPeriodSelector = !gameState.activePeriodId && (activeCategory?.periods || []).length > 0;
+
+    const nodesToRender = activePeriod ? activePeriod.nodes : (activeCategory?.nodes || []);
+
+    // Helper to go back
+    const handleGameBack = () => {
+      if (gameState.activePeriodId) {
+        // Go back to Period Selection
+        setGameState({ ...gameState, activePeriodId: null });
+      } else {
+        // Go back to Archive
+        setView('ARCHIVE');
+      }
+    };
+
     return (
       <div className="min-h-screen flex flex-col relative overflow-x-hidden bg-[#dcdcd7]">
         <header className="relative z-20 text-center mb-10 flex justify-between items-center pt-4 px-6 md:px-12">
           <button
-            onClick={() => setView('ARCHIVE')} // Back to Archive selection
+            onClick={handleGameBack}
             className="px-6 py-2 border-2 border-[#8b7d6b] text-[#8b7d6b] text-[10px] tracking-[0.3em] font-black rounded-sm uppercase bg-white/40 hover:bg-white/60"
           >
-            ← ARŞİV
+            {gameState.activePeriodId ? '← DÖNEMLER' : '← ARŞİV'}
           </button>
-          <h1 className="font-display text-2xl tracking-[0.2em] text-[#8b7d6b] font-black">
-            {gameState.categories.find(c => c.id === gameState.activeCategoryId)?.name.toUpperCase()}
+          <h1 className="font-display text-2xl tracking-[0.2em] text-[#8b7d6b] font-black flex flex-col items-center">
+            <span>{activeCategory?.name.toUpperCase()}</span>
+            {activePeriod && <span className="text-xs mt-1 text-stone-500 tracking-[0.3em]">{activePeriod.name}</span>}
           </h1>
           <div className="w-24" />
         </header>
 
         <main className="flex-grow p-6 max-w-screen-xl mx-auto w-full">
-          <Stats
-            teams={gameState.teams}
-            activeTeamIndex={gameState.activeTeamIndex}
-            totalNodes={gameState.categories.find(c => c.id === gameState.activeCategoryId)?.nodes.length || 0}
-            isMyTurn={gameState.mode === 'DUEL' ? (duelSession?.currentTurnUserId === gameState.user?.id) : true}
-          />
-          <div className="grid grid-cols-2 gap-x-12 gap-y-24 my-12 justify-items-center">
-            {gameState.categories.find(c => c.id === gameState.activeCategoryId)?.nodes.map(node => (
-              <VisualBox key={node.id} node={node} isActive={selectedNode?.id === node.id} onClick={setSelectedNode} />
-            ))}
-          </div>
+          {showPeriodSelector ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-8">
+              <div className="col-span-full text-center mb-8">
+                <h2 className="font-serif-vintage italic text-2xl text-stone-600">Bir Zaman Dilimi Seçin...</h2>
+              </div>
+              {activeCategory?.periods.map(period => (
+                <button
+                  key={period.id}
+                  onClick={() => setGameState({ ...gameState, activePeriodId: period.id })}
+                  className="group relative h-48 bg-[#f0f0eb] border-2 border-[#8b7d6b]/30 hover:border-[#8b7d6b] transition-all duration-500 flex flex-col items-center justify-center p-6 text-center shadow-sm hover:shadow-xl hover:-translate-y-1 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')] opacity-30" />
+                  <div className="relative z-10">
+                    <h3 className="font-display text-xl font-black text-[#8b7d6b] group-hover:text-black transition-colors uppercase tracking-widest mb-2">{period.name}</h3>
+                    <div className="w-12 h-1 bg-[#8b7d6b] mx-auto opacity-50 group-hover:w-24 transition-all duration-500" />
+                    <p className="mt-4 text-[10px] font-bold text-stone-500 uppercase tracking-[0.2em]">{period.nodes.length} GİZEM</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
+              <Stats
+                teams={gameState.teams}
+                activeTeamIndex={gameState.activeTeamIndex}
+                totalNodes={nodesToRender.length}
+                isMyTurn={gameState.mode === 'DUEL' ? (duelSession?.currentTurnUserId === gameState.user?.id) : true}
+              />
+              <div className="grid grid-cols-2 gap-x-12 gap-y-24 my-12 justify-items-center">
+                {nodesToRender.map(node => (
+                  <VisualBox key={node.id} node={node} isActive={selectedNode?.id === node.id} onClick={setSelectedNode} />
+                ))}
+                {nodesToRender.length === 0 && (
+                  <div className="col-span-2 py-20 text-center font-serif-vintage italic text-stone-400">
+                    Bu dönemde henüz keşfedilecek bir sır yok...
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </main>
 
         {/* Modal Logic for Game */}
@@ -708,6 +754,7 @@ const App: React.FC = () => {
                 categories: INITIAL_CATEGORIES,
                 eras: INITIAL_ERAS,
                 activeCategoryId: null,
+                activePeriodId: null,
                 activeEraId: null,
                 activeTopicId: null,
                 activeSubTopicId: null,

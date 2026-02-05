@@ -7,6 +7,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-ancient-hun',
     name: 'Bozkırın Efendileri: Hunlar',
     description: 'Orta Asya bozkırlarında kurulan ilk Türk imparatorluğunun gizli mühürleri.',
+    periods: [],
     nodes: [
       {
         id: 'node-hun-1',
@@ -94,6 +95,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-gokturk',
     name: 'GökTürkler: Yazılı Kaynaklar',
     description: 'Türk adıyla kurulan ilk devletin taşlara kazınmış vasiyetleri.',
+    periods: [],
     nodes: [
       {
         id: 'node-gok-1',
@@ -115,6 +117,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-seljuk-grand',
     name: 'Selçuklu: Anadolu Kapıları',
     description: 'Anadolu’nun yurt tutulduğu şanlı zaferler ve kervansaraylar.',
+    periods: [],
     nodes: [
       {
         id: 'node-sel-1',
@@ -136,6 +139,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-ottoman-conquest',
     name: 'Osmanlı: Cihan Devleti',
     description: 'Fatih’ten Kanuni’ye, üç kıtaya hükmeden imparatorluğun sırları.',
+    periods: [],
     nodes: [
       {
         id: 'node-ott-1',
@@ -157,6 +161,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-republic-era',
     name: 'Cumhuriyet: Çağdaşlaşma',
     description: 'Milli Mücadele’den modern Türkiye’nin kuruluşuna.',
+    periods: [],
     nodes: [
       {
         id: 'node-rep-1',
@@ -178,6 +183,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-egypt',
     name: 'Mısır: Piramitlerin Sırrı',
     description: 'Nil Nehri kıyısında yükselen devasa anıtlar ve firavunların gizemi.',
+    periods: [],
     nodes: [
       {
         id: 'node-egypt-1',
@@ -199,6 +205,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-rome',
     name: 'Roma: İmparatorluk Gücü',
     description: 'Kolezyum’dan hukuk sistemine, batı medeniyetinin temelleri.',
+    periods: [],
     nodes: [
       {
         id: 'node-rome-1',
@@ -220,6 +227,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'cat-maya',
     name: 'Maya: Gökyüzü Gözlemcileri',
     description: 'Ormanların derinliklerinde kaybolan kadim şehirler ve takvimler.',
+    periods: [],
     nodes: [
       {
         id: 'node-maya-1',
