@@ -50,6 +50,7 @@ const App: React.FC = () => {
       clearTimeout(logoutTimer);
       logoutTimer = setTimeout(() => {
         // Perform Logout
+        clearDatabase(); // Ensure stored session is wiped
         setIsAdminAuthenticated(false);
         setGameState(null);
         setView('LANDING');
@@ -711,7 +712,12 @@ const App: React.FC = () => {
                   )}
 
                   <button
-                    onClick={() => { setGameState(null); setView('LANDING'); }}
+                    onClick={() => {
+                      clearDatabase();
+                      setIsAdminAuthenticated(false);
+                      setGameState(null);
+                      setView('LANDING');
+                    }}
                     className="w-full py-3 text-stone-400 font-display text-[9px] tracking-[0.5em] font-black uppercase hover:text-red-800 transition-colors"
                   >
                     [ ÇIKIŞ YAP / SIFIRLA ]
@@ -772,6 +778,12 @@ const App: React.FC = () => {
             }} onCancel={() => setView('LANDING')} />
           ) : view === 'ADMIN_LOGIN' ? (
             <AdminLogin onSuccess={() => { setIsAdminAuthenticated(true); setView('ADMIN_PANEL'); }} onCancel={() => setView('LANDING')} />
+          ) : view === 'ADMIN_PANEL' ? (
+            <AdminPanel
+              gameState={gameState}
+              setGameState={setGameState}
+              onClose={() => setView('LANDING')}
+            />
           ) : null}
         </div>
       </div>
