@@ -10,18 +10,9 @@ interface MysteryBoxProps {
 }
 
 const MysteryBox: React.FC<MysteryBoxProps> = ({ node, onSuccess }) => {
-  const [step, setStep] = useState<'MAP' | 'OPENING_BOX' | 'HISTORY' | 'MATH'>('MAP');
+  const [step, setStep] = useState<'HISTORY' | 'MATH' | 'OPENING_BOX' | 'MAP'>('HISTORY');
   const [userInput, setUserInput] = useState('');
   const [error, setError] = useState(false);
-
-  // Transition from Map (Key Found) to Box Opening
-  const handleMapDiscovery = () => {
-    setStep('OPENING_BOX');
-    // Animate box opening, then show question
-    setTimeout(() => {
-      setStep('HISTORY');
-    }, 2500);
-  };
 
   const handleHistorySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +29,21 @@ const MysteryBox: React.FC<MysteryBoxProps> = ({ node, onSuccess }) => {
   const handleMathSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (parseInt(userInput) === node.mathResult) {
-      onSuccess(); // Complete the node
+      setStep('OPENING_BOX');
+      setUserInput('');
+      setError(false);
+      // Box opening animation, then show map to find the final key
+      setTimeout(() => {
+        setStep('MAP');
+      }, 2500);
     } else {
       setError(true);
       setTimeout(() => setError(false), 500);
     }
+  };
+
+  const handleMapDiscovery = () => {
+    onSuccess(); // Complete the node when key is found on map
   };
 
   return (

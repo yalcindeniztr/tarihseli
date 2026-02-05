@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GameState, RiddleNode, Category, UserProfile } from '../types';
 import { INITIAL_CATEGORIES } from '../constants';
-import { syncCategoriesToCloud, fetchAllUsersFromCloud, deleteUserFromCloud, fetchSystemSettings, saveSystemSettings } from '../services/firebase';
+import { syncCategoriesToCloud, fetchAllUsersFromCloud, deleteUserFromCloud, fetchSystemSettings, saveSystemSettings, deleteInactiveUsers } from '../services/firebase';
 import { clearDatabase } from '../services/db';
 import NodeEditor from './Admin/NodeEditor';
 import { Button, Card, Modal, Badge, IconButton, Input, Switch } from './Admin/MaterialUI';
@@ -229,11 +229,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
         </nav>
 
         <div className="p-4 border-t border-slate-100 bg-slate-50/30 space-y-3">
-          <Button fullWidth variant="primary" onClick={handlePushToCloud} startIcon="🚀">
-            Yayınla (Deploy)
+          <Button fullWidth variant="primary" onClick={handlePushToCloud} startIcon="☁️">
+            Verileri Kaydet
           </Button>
-          <Button fullWidth variant="ghost" onClick={onClose}>
-            Paneli Kapat
+          <div className="text-[10px] text-center text-slate-400 px-2 leading-tight">
+            *Kod güncellemeleri için masaüstündeki kısa yolu kullanın.
+          </div>
+          <Button fullWidth variant="outline" onClick={() => onClose()} startIcon="👁️">
+            Oyuna Dön (Siteyi Gör)
           </Button>
         </div>
       </aside>
@@ -448,6 +451,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
                 </div>
               </div>
             </Card>
+
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 mb-6">
+              <h4 className="font-bold text-amber-700 mb-2">Veritabanı Temizliği</h4>
+              <p className="text-amber-600/80 text-sm mb-4">Depolama alanını rahatlatmak için aktif olmayan (Sv. 1) kullanıcıları sil.</p>
+              <Button variant="secondary" onClick={async () => {
+                const count = await deleteInactiveUsers();
+                alert(`${count} adet pasif kullanıcı silindi.`);
+                refreshUsers();
+              }}>Pasif Kullanıcıları Temizle</Button>
+            </div>
 
             <div className="bg-red-50 border border-red-100 rounded-xl p-6">
               <h4 className="font-bold text-red-700 mb-2">Tehlikeli Bölge</h4>

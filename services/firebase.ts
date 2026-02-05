@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, addDoc, updateDoc, onSnapshot, query, where, arrayUnion, increment } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { Category, UserProfile } from '../types';
+import { GameState, QuestStatus, RiddleNode, GameMode, TeamProgress, UserProfile, Invite, DuelSession, Guild, Category } from '../types';
 
 // NOTE: Replace these with your actual Firebase project configuration
 // You can find these in your Firebase Console -> Project Settings
@@ -80,7 +80,15 @@ export const deleteUserFromCloud = async (userId: string): Promise<boolean> => {
 export const loginWithGoogle = async (): Promise<boolean> => {
   try {
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(auth, provider);
+    const email = result.user.email;
+
+    // Admin Email Restriction
+    if (email !== 'yalcindeniztr@gmail.com') {
+      await auth.signOut();
+      alert("YALNIZCA YETKİLİ ADMİN GİRİŞ YAPABİLİR!");
+      return false;
+    }
     return true;
   } catch (error) {
     console.error("Login Failed:", error);
@@ -138,5 +146,275 @@ export const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
   } catch (e) {
     console.error("Fetch Settings Error:", e);
     return null;
+  }
+};
+
+export const deleteInactiveUsers = async (): Promise<number> => {
+  if (!db) return 0;
+  try {
+    const snapshot = await getDocs(collection(db, "users"));
+    let deletedCount = 0;
+    const deletePromises: any[] = [];
+
+    snapshot.forEach((docSnap) => {
+      const userData = docSnap.data() as UserProfile;
+      if (!userData.username.includes("Admin") && !userData.username.includes("Yönetici") && userData.level < 2) {
+        deletePromises.push(deleteDoc(doc(db, "users", docSnap.id)));
+        deletedCount++;
+      }
+    });
+
+    await Promise.all(deletePromises);
+    return deletedCount;
+  } catch (e) {
+    console.error("Cleanup Error:", e);
+    return 0;
+  }
+};
+
+// --- DUEL INVITE SYSTEM ---
+// --- DUEL INVITE SYSTEM ---
+
+export const sendDuelInvite = async (fromUser: UserProfile, toUserId: string): Promise<string | null> => {
+  if (!db) return null;
+  try {
+    const invite: Omit<Invite, 'id'> = {
+      fromId: fromUser.id,
+      fromName: fromUser.username,
+      toId: toUserId,
+      status: 'PENDING',
+      timestamp: Date.now()
+    };
+    const docRef = await addDoc(collection(db, "invites"), invite);
+    return docRef.id;
+  } catch (e) {
+    console.error("Invite Error:", e);
+    return null;
+  }
+};
+
+export const listenForInvites = (userId: string, callback: (invites: Invite[]) => void) => {
+  if (!db) return () => { };
+
+  const q = query(
+    collection(db, "invites"),
+    where("toId", "==", userId),
+    where("status", "==", "PENDING")
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const invites: Invite[] = [];
+    snapshot.forEach((doc) => {
+      invites.push({ id: doc.id, ...doc.data() } as Invite);
+    });
+    callback(invites);
+  });
+};
+
+export const respondToInvite = async (inviteId: string, status: 'ACCEPTED' | 'REJECTED'): Promise<void> => {
+  if (!db) return;
+  try {
+    await updateDoc(doc(db, "invites", inviteId), { status });
+  } catch (e) {
+    console.error("Respond Error:", e);
+  }
+};
+
+export const createDuelSession = async (invite: Invite, categoryId: string): Promise<string | null> => {
+  if (!db) return null;
+  try {
+    const duel: DuelSession = {
+      id: '', // Will be set by doc id
+      player1: { id: invite.fromId, name: invite.fromName, score: 0 },
+      player2: { id: invite.toId, name: 'Rakip', score: 0 }, // Name should be fetched ideally
+      currentTurnUserId: invite.fromId, // Sender starts? Or random? Let's say sender.
+      category: categoryId,
+      wagerAmount: 100, // Default wager for now
+      status: 'ACTIVE',
+      createdAt: Date.now(),
+      lastMoveAt: Date.now(),
+      moves: []
+    };
+    // Use invite ID as duel ID for simplicity or auto-gen
+    const docRef = await addDoc(collection(db, "duels"), duel);
+    await updateDoc(docRef, { id: docRef.id }); // update id field
+    return docRef.id;
+  } catch (e) {
+    console.error("Create Duel Error:", e);
+    return null;
+  }
+};
+
+export const listenToDuelSession = (duelId: string, callback: (session: DuelSession) => void) => {
+  if (!db) return () => { };
+  return onSnapshot(doc(db, "duels", duelId), (doc) => {
+    if (doc.exists()) {
+      callback(doc.data() as DuelSession);
+    }
+  });
+};
+
+export const updateDuelMove = async (duelId: string, userId: string, nodeId: string, points: number, nextTurnUserId: string) => {
+  if (!db) return;
+  try {
+    const duelRef = doc(db, "duels", duelId);
+    // We need to fetch current state to update score safely (transaction would be better but keep simple for now)
+    // Actually Firestore `increment` is best for score.
+    // For array union: arrayUnion
+
+    // Dynamic key for score update: player1.score or player2.score? 
+    // We need to know which player 'userId' is. 
+    // For MVPr, we read then write.
+    // But to be generic, let's just push move and let client calc score? 
+    // No, client needs sync. 
+
+    // Let's assume we update the specific player field manually in the client before calling this? 
+    // No, backend logic should reside here or be simple.
+
+    await updateDoc(duelRef, {
+      moves: arrayUnion({ userId, nodeId, timestamp: Date.now() }),
+      currentTurnUserId: nextTurnUserId,
+      lastMoveAt: Date.now()
+      // Score update is complex without knowing player1 vs player2 here. 
+      // We will handle score update in a separate call or assume UI passes it?
+      // Let's keep it simple: UI calculates new scores and passes them? 
+      // Better: updateDuelMove accepts specific field updates.
+    });
+  } catch (e) {
+    console.error("Update Move Error:", e);
+  }
+};
+
+// Update Score Helper
+export const updateDuelScore = async (duelId: string, playerField: 'player1' | 'player2', points: number) => {
+  if (!db) return;
+  const duelRef = doc(db, "duels", duelId);
+  await updateDoc(duelRef, {
+    [`${playerField}.score`]: increment(points)
+  });
+};
+export const finishDuelSession = async (duelId: string) => {
+  if (!db) return;
+  const duelRef = doc(db, "duels", duelId);
+  await updateDoc(duelRef, {
+    status: 'FINISHED',
+    lastMoveAt: Date.now()
+  });
+};
+
+export const getMuhafizByUsername = async (username: string): Promise<UserProfile | null> => {
+  if (!db) return null;
+  try {
+    const q = query(collection(db, "users"), where("username", "==", username));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      return querySnapshot.docs[0].data() as UserProfile;
+    }
+    return null;
+  } catch (e) {
+    console.error("Find Muhafiz Error:", e);
+    return null;
+  }
+};
+
+// --- GUILD (LONCA) SYSTEM ---
+
+export const createNewGuild = async (userId: string, username: string, name: string, description: string): Promise<string | null> => {
+  if (!db) return null;
+  try {
+    const guildData: Omit<Guild, 'id'> = {
+      name,
+      leaderId: userId,
+      leaderName: username,
+      members: [userId],
+      totalScore: 0,
+      createdAt: Date.now(),
+      description
+    };
+
+    const docRef = await addDoc(collection(db, "guilds"), guildData);
+    const guildId = docRef.id;
+    await updateDoc(docRef, { id: guildId });
+
+    // Update User's Guild ID
+    await updateDoc(doc(db, "users", userId), { guildId: guildId });
+
+    return guildId;
+  } catch (e) {
+    console.error("Create Guild Error:", e);
+    return null;
+  }
+};
+
+export const joinGuild = async (userId: string, guildId: string): Promise<boolean> => {
+  if (!db) return false;
+  try {
+    const guildRef = doc(db, "guilds", guildId);
+    await updateDoc(guildRef, {
+      members: arrayUnion(userId)
+    });
+
+    // Update User
+    await updateDoc(doc(db, "users", userId), { guildId: guildId });
+    return true;
+  } catch (e) {
+    console.error("Join Guild Error:", e);
+    return false;
+  }
+};
+
+export const leaveGuild = async (userId: string, guildId: string): Promise<boolean> => {
+  if (!db) return false;
+  try {
+    const guildRef = doc(db, "guilds", guildId);
+    const guildSnap = await getDoc(guildRef);
+    if (!guildSnap.exists()) return false;
+
+    const members = guildSnap.data().members as string[];
+    const updatedMembers = members.filter(id => id !== userId);
+
+    await updateDoc(guildRef, { members: updatedMembers });
+    await updateDoc(doc(db, "users", userId), { guildId: null });
+
+    return true;
+  } catch (e) {
+    console.error("Leave Guild Error:", e);
+    return false;
+  }
+};
+
+export const fetchAllGuilds = async (): Promise<Guild[]> => {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, "guilds"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data() as Guild);
+  } catch (e) {
+    console.error("Fetch Guilds Error:", e);
+    return [];
+  }
+};
+
+export const fetchGuildDetails = async (guildId: string): Promise<Guild | null> => {
+  if (!db) return null;
+  try {
+    const docSnap = await getDoc(doc(db, "guilds", guildId));
+    if (docSnap.exists()) return docSnap.data() as Guild;
+    return null;
+  } catch (e) {
+    console.error("Fetch Guild Details Error:", e);
+    return null;
+  }
+};
+
+export const updateGuildScore = async (guildId: string, points: number) => {
+  if (!db) return;
+  try {
+    const guildRef = doc(db, "guilds", guildId);
+    await updateDoc(guildRef, {
+      totalScore: increment(points)
+    });
+  } catch (e) {
+    console.error("Update Guild Score Error:", e);
   }
 };

@@ -66,8 +66,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onCancel }) => {
                     </Button>
                 </div>
 
-                <p className="text-center text-[10px] text-slate-400 mt-8">
-                    Sadece yetkili hesaplar (yalcindeniztr@gmail.com) tam erişim sağlayabilir.
+                <p className="text-center text-[10px] text-red-600 font-bold mt-8 uppercase tracking-widest">
+                    ⚠️ Sadece yalcindeniztr@gmail.com erişim sağlayabilir.
                 </p>
             </div>
         </div>

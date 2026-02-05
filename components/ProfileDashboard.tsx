@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { UserProfile, Friend, Guild } from '../types';
 import { Modal, Button, Input } from './Admin/MaterialUI';
+import { fetchAllUsersFromCloud, sendDuelInvite, getMuhafizByUsername, createNewGuild, joinGuild, leaveGuild, fetchAllGuilds } from '../services/firebase';
+import GuildLeaderboard from './GuildLeaderboard';
 
 interface ProfileDashboardProps {
   user: UserProfile;
@@ -11,20 +13,112 @@ interface ProfileDashboardProps {
 }
 
 const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, onDeleteProfile, onBack, onAdminAccess }) => {
-  const [activeModal, setActiveModal] = useState<'NONE' | 'DELETE_CONFIRM' | 'JOIN_GUILD' | 'INVITE'>('NONE');
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [activeModal, setActiveModal] = useState<'NONE' | 'DELETE_CONFIRM' | 'JOIN_GUILD' | 'INVITE' | 'CREATE_GUILD' | 'FIND_GUILD'>('NONE');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [inviteUsername, setInviteUsername] = useState('');
+  const [isInvitingDirectly, setIsInvitingDirectly] = useState(false);
 
-  const handleJoinGuild = () => {
-    // Mock functionality - In real app, this would show a list of guilds
-    alert("Lonca sistemi yakında aktif olacak! Şu an sadece davetiye ile katılım sağlanabilir.");
+  // Guild States
+  const [newGuildName, setNewGuildName] = useState('');
+  const [newGuildDesc, setNewGuildDesc] = useState('');
+  const [availableGuilds, setAvailableGuilds] = useState<Guild[]>([]);
+  const [isGuildLoading, setIsGuildLoading] = useState(false);
+
+  const handleJoinGuildAction = async (guildId: string) => {
+    setIsGuildLoading(true);
+    const success = await joinGuild(user.id, guildId);
+    if (success) {
+      alert("Loncaya başarıyla katıldınız!");
+      window.location.reload(); // Refresh to sync App.tsx state
+    } else {
+      alert("Loncaya katılamadı.");
+    }
+    setIsGuildLoading(false);
+    setActiveModal('NONE');
   };
 
-  const handleInvite = () => {
-    if (!inviteEmail) return;
-    alert(`${inviteEmail} adresine muhafız davetiyesi gönderildi!`);
-    setInviteEmail('');
+  const handleCreateGuild = async () => {
+    if (!newGuildName.trim()) return;
+    setIsGuildLoading(true);
+    const guildId = await createNewGuild(user.id, user.username, newGuildName.trim(), newGuildDesc.trim());
+    if (guildId) {
+      alert("Loncayı kurdunuz! Sancağınız daim olsun.");
+      window.location.reload();
+    } else {
+      alert("Lonca kurulurken hata oluştu.");
+    }
+    setIsGuildLoading(false);
     setActiveModal('NONE');
-  }
+  };
+
+  const handleLeaveGuildAction = async () => {
+    if (!user.guildId) return;
+    if (!confirm("Loncadan ayrılmak istediğinize emin misiniz? Puan katkınız loncada kalacaktır.")) return;
+
+    setIsGuildLoading(true);
+    const success = await leaveGuild(user.id, user.guildId);
+    if (success) {
+      alert("Loncadan ayrıldınız.");
+      window.location.reload();
+    } else {
+      alert("Ayrılma işlemi başarısız.");
+    }
+    setIsGuildLoading(false);
+  };
+
+  const handleOpenFindGuild = async () => {
+    setIsGuildLoading(true);
+    const gs = await fetchAllGuilds();
+    setAvailableGuilds(gs);
+    setIsGuildLoading(false);
+    setActiveModal('FIND_GUILD');
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    const allUsers = await fetchAllUsersFromCloud();
+    const filtered = allUsers.filter(u =>
+      u.id !== user.id &&
+      u.username.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setSearchResults(filtered);
+    setIsSearching(false);
+  };
+
+  const handleSendInvite = async (targetUser: UserProfile) => {
+    if (targetUser.id === user.id) {
+      alert("Kendinize meydan okuyamazsınız!");
+      return;
+    }
+    const inviteId = await sendDuelInvite(user, targetUser.id);
+    if (inviteId) {
+      alert(`${targetUser.username} adlı muhafıza düello daveti gönderildi!`);
+      setActiveModal('NONE');
+    } else {
+      alert("Davet gönderilemedi. Bir hata oluştu.");
+    }
+  };
+
+  const handleDirectInvite = async () => {
+    if (!inviteUsername.trim()) return;
+    if (inviteUsername.toLowerCase() === user.username.toLowerCase()) {
+      alert("Kendinize meydan okuyamazsınız!");
+      return;
+    }
+
+    setIsInvitingDirectly(true);
+    const targetUser = await getMuhafizByUsername(inviteUsername.trim());
+
+    if (targetUser) {
+      await handleSendInvite(targetUser);
+    } else {
+      alert("Bu isimde bir muhafız bulunamadı. Lütfen tam adı doğru girdiğinizden emin olun.");
+    }
+    setIsInvitingDirectly(false);
+  };
 
   return (
     <>
@@ -46,7 +140,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, onDele
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12 flex-grow">
-              {/* Sol Kolon: Ana İstatistikler (Same as before) */}
+              {/* Sol Kolon: Ana İstatistikler */}
               <div className="space-y-10 flex flex-col items-center md:items-stretch">
                 <div className="relative group cursor-help w-fit mx-auto" onClick={onAdminAccess}>
                   <div className="w-32 h-32 md:w-40 md:h-40 brass-texture rounded-full flex items-center justify-center border-4 border-[#8b7d6b] shadow-2xl relative overflow-hidden">
@@ -95,21 +189,37 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, onDele
                       <div>
                         <span className="text-2xl font-display text-stone-800 tracking-[0.2em] font-black">{guild.name.toUpperCase()}</span>
                         <p className="text-[10px] text-stone-500 uppercase font-extrabold mt-2">{guild.members.length} AKTİF MUHAFIZ | {guild.totalScore} TOPLAM KUDRET</p>
+                        <p className="text-[9px] text-stone-400 italic mt-1">"{guild.description}"</p>
                       </div>
-                      <button className="text-[10px] text-red-800 border-2 border-red-800/30 px-5 py-2 hover:bg-red-800 hover:text-white transition-all uppercase font-black">AYRIL</button>
+                      <button
+                        onClick={handleLeaveGuildAction}
+                        className="text-[10px] text-red-800 border-2 border-red-800/30 px-5 py-2 hover:bg-red-800 hover:text-white transition-all uppercase font-black"
+                      >
+                        AYRIL
+                      </button>
                     </div>
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-stone-600 font-serif-vintage italic mb-6 text-lg">Henüz bir birliğe dahil olmadınız, muhafız.</p>
-                      <button
-                        onClick={() => setActiveModal('JOIN_GUILD')}
-                        className="w-full sm:w-auto px-10 py-3 bg-[#8b7d6b] text-[#dcdcd7] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-black transition-all font-black shadow-lg"
-                      >
-                        BİRLİĞE KATIL / KUR
-                      </button>
+                      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button
+                          onClick={handleOpenFindGuild}
+                          className="px-10 py-3 bg-[#8b7d6b] text-[#dcdcd7] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-black transition-all font-black shadow-lg"
+                        >
+                          LONCA BUL
+                        </button>
+                        <button
+                          onClick={() => setActiveModal('CREATE_GUILD')}
+                          className="px-10 py-3 border-2 border-[#8b7d6b] text-[#8b7d6b] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-[#8b7d6b] hover:text-[#dcdcd7] transition-all font-black"
+                        >
+                          YENİ LONCA KUR
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
+
+                <GuildLeaderboard guilds={availableGuilds.length > 0 ? availableGuilds : []} />
 
                 <div>
                   <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">DOSTLAR VE RAKİPLER</h3>
@@ -128,7 +238,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, onDele
                       onClick={() => setActiveModal('INVITE')}
                       className="border-3 border-dashed border-[#8b7d6b]/20 p-4 rounded flex items-center justify-center text-stone-400 hover:border-[#8b7d6b]/50 hover:text-[#8b7d6b] transition-all text-[10px] font-black uppercase tracking-widest"
                     >
-                      + YENİ MUHAFIZ DAVET ET
+                      + YENİ DÜELLO / DOST ARA
                     </button>
                   </div>
                 </div>
@@ -164,36 +274,106 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, onDele
       </Modal>
 
       <Modal
-        isOpen={activeModal === 'JOIN_GUILD'}
+        isOpen={activeModal === 'INVITE'}
         onClose={() => setActiveModal('NONE')}
-        title="LONCA SİSTEMİ"
-        actions={<Button onClick={() => setActiveModal('NONE')}>ANLAŞILDI</Button>}
+        title="MUHAFIZ ARA VE DAVET ET"
+        actions={<Button variant="ghost" onClick={() => setActiveModal('NONE')}>KAPAT</Button>}
       >
-        <div className="text-center space-y-4">
-          <span className="text-4xl">🛡️</span>
-          <p className="text-stone-700 font-bold">Lonca sistemi bakım modunda.</p>
-          <p className="text-sm text-stone-500">Yakında kendi birliğinizi kurabilecek veya sancak altında toplanabileceksiniz.</p>
+        <div className="space-y-4">
+          <p className="text-stone-600 text-sm">Düello yapmak veya dost eklemek istediğiniz muhafızın adını arayın.</p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Muhafız Adı..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Button onClick={handleSearch} disabled={isSearching}>ARA</Button>
+          </div>
+
+          <div className="max-h-32 overflow-y-auto space-y-2 mt-2 border border-slate-100 rounded p-2 bg-slate-50/50">
+            {searchResults.length === 0 && !isSearching && <p className="text-[10px] text-stone-400 text-center py-2">Henüz sonuç yok.</p>}
+            {searchResults.map(resUser => (
+              <div key={resUser.id} className="flex items-center justify-between bg-white p-2 rounded border border-slate-100">
+                <div>
+                  <span className="font-bold text-stone-700 block text-[10px]">{resUser.username}</span>
+                  <span className="text-[9px] text-stone-400 font-bold">LVL {resUser.level}</span>
+                </div>
+                <Button size="sm" onClick={() => handleSendInvite(resUser)}>DAVET</Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200"></div></div>
+            <div className="relative flex justify-center text-[10px]"><span className="px-3 bg-white text-stone-400 font-bold uppercase tracking-widest leading-none">veya doğrudan davet</span></div>
+          </div>
+
+          <div className="space-y-3 bg-[#8b7d6b]/5 p-4 rounded-sm border border-[#8b7d6b]/20">
+            <p className="text-[10px] text-[#8b7d6b] font-black uppercase tracking-wider">📜 TAM KULLANICI ADI İLE DAVET</p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Örn: Tarihçi1071"
+                value={inviteUsername}
+                onChange={(e) => setInviteUsername(e.target.value)}
+              />
+              <Button color="secondary" onClick={handleDirectInvite} disabled={isInvitingDirectly}>
+                {isInvitingDirectly ? "GÖNDERİLİYOR..." : "DÜELLOYA DAVET ET"}
+              </Button>
+            </div>
+          </div>
         </div>
       </Modal>
 
       <Modal
-        isOpen={activeModal === 'INVITE'}
+        isOpen={activeModal === 'CREATE_GUILD'}
         onClose={() => setActiveModal('NONE')}
-        title="MUHAFIZ DAVET ET"
+        title="YENİ LONCA KUR"
         actions={
           <>
-            <Button variant="ghost" onClick={() => setActiveModal('NONE')}>İPTAL</Button>
-            <Button onClick={handleInvite} disabled={!inviteEmail}>DAVET GÖNDER</Button>
+            <Button variant="ghost" onClick={() => setActiveModal('NONE')}>VAZGEÇ</Button>
+            <Button onClick={handleCreateGuild} disabled={isGuildLoading || !newGuildName.trim()}>
+              {isGuildLoading ? "KURULUYOR..." : "LONCAYI KUR (TAKIM OLUŞTUR)"}
+            </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <p className="text-stone-600 text-sm">Dostunuzu bu kadim yolculuğa davet edin. Onlar da tarihin sırlarını çözsün.</p>
+          <p className="text-stone-600 text-xs">Takım ruhunu yaşatacak bir isim ve muhafızları peşinden sürükleyecek bir vizyon belirle.</p>
           <Input
-            placeholder="E-posta Adresi Giriniz"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
+            label="LONCA ADI"
+            placeholder="Örn: Kadim Muhafızlar"
+            value={newGuildName}
+            onChange={(e) => setNewGuildName(e.target.value)}
           />
+          <Input
+            label="VİZYON / AÇIKLAMA"
+            placeholder="Örn: Tarihin mühürlerini koruyan asil birlik."
+            value={newGuildDesc}
+            onChange={(e) => setNewGuildDesc(e.target.value)}
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={activeModal === 'FIND_GUILD'}
+        onClose={() => setActiveModal('NONE')}
+        title="LONCA KEŞFET"
+        actions={<Button variant="ghost" onClick={() => setActiveModal('NONE')}>KAPAT</Button>}
+      >
+        <div className="space-y-4">
+          <p className="text-stone-600 text-xs">Kudretli bir birliğe katılarak tarih yolculuğunda takımınla birlikte yüksel.</p>
+          <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-100 rounded p-2">
+            {availableGuilds.length === 0 && !isGuildLoading && <p className="text-center text-xs text-stone-400 py-4">Aktif lonca bulunamadı.</p>}
+            {availableGuilds.map(g => (
+              <div key={g.id} className="bg-slate-50 p-3 rounded flex justify-between items-center border border-slate-100">
+                <div>
+                  <span className="font-bold text-stone-800 text-xs block">{g.name}</span>
+                  <span className="text-[10px] text-stone-500">{g.members.length} Muhafız | {g.totalScore} Puan</span>
+                </div>
+                <Button size="sm" onClick={() => handleJoinGuildAction(g.id)} disabled={isGuildLoading}>KATIL</Button>
+              </div>
+            ))}
+          </div>
         </div>
       </Modal>
     </>

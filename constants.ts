@@ -1,7 +1,7 @@
 
-import { Category, QuestStatus } from './types';
+import { Category, Era, QuestStatus } from './types';
 
-// Image URLs updated to be more specific to the context
+// Backward compatibility (we will eventually generate this from Eras)
 export const INITIAL_CATEGORIES: Category[] = [
   {
     id: 'cat-ancient-hun',
@@ -109,3 +109,82 @@ export const INITIAL_CATEGORIES: Category[] = [
     ]
   }
 ];
+
+export const INITIAL_ERAS: Era[] = [
+  {
+    id: 'era-turkic-history',
+    name: 'TÜRK TARİHİ',
+    description: 'Orta Asya\'dan Anadolu\'ya uzanan binlerce yıllık kadim yolculuk.',
+    order: 0,
+    imageUrl: '',
+    topics: [
+      {
+        id: 'topic-pre-islamic',
+        name: 'İslamiyet Öncesi Türk Tarihi',
+        description: 'Bozkırın atlı göçebeleri ve ilk devletler.',
+        order: 0,
+        subTopics: [
+          {
+            id: 'sub-huns',
+            name: 'Asya Hun Devleti',
+            nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-ancient-hun')!.nodes
+          },
+          {
+            id: 'sub-gokturks',
+            name: 'Göktürk Devleti',
+            nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-gokturk')!.nodes
+          }
+        ]
+      },
+      {
+        id: 'topic-seljuk',
+        name: 'Selçuklu Dönemi',
+        description: 'Anadolu\'nun kapılarının açılması ve yerleşik hayata geçiş.',
+        order: 1,
+        subTopics: [
+          {
+            id: 'sub-great-seljuk',
+            name: 'Büyük Selçuklu Devleti',
+            nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-seljuk-grand')!.nodes
+          }
+        ]
+      },
+      {
+        id: 'topic-ottoman',
+        name: 'Osmanlı İmparatorluğu',
+        description: 'Üç kıtaya hükmeden cihan devleti.',
+        order: 2,
+        subTopics: [
+          {
+            id: 'sub-ottoman-rise',
+            name: 'Yükselme Dönemi',
+            nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-ottoman-conquest')!.nodes
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'era-republic',
+    name: 'CUMHURİYET TARİHİ',
+    description: 'Milli Mücadele ve modern Türkiye\'nin doğuşu.',
+    order: 1,
+    imageUrl: '',
+    topics: [
+      {
+        id: 'topic-modern-turkey',
+        name: 'Modern Türkiye',
+        description: 'Bağımsızlık savaşı ve devrimler.',
+        order: 0,
+        subTopics: [
+          {
+            id: 'sub-republic-founding',
+            name: 'Kuruluş Dönemi',
+            nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-republic-era')!.nodes
+          }
+        ]
+      }
+    ]
+  }
+];
+
