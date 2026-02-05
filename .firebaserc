@@ -4,11 +4,7 @@
   },
   "targets": {
     "tarihoyun-2026": {
-      "hosting": {
-        "tarihseli": [
-          "tarihseli"
-        ]
-      }
+      "hosting": {}
     }
   },
   "etags": {}
