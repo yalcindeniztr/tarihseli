@@ -1,6 +1,5 @@
 {
     "hosting": {
-        "site": "tarihseli",
         "public": "dist",
         "ignore": [
             "firebase.json",
