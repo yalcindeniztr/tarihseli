@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { UserProfile, Friend, Guild } from '../types';
+import React, { useState, useEffect } from 'react';
+import { UserProfile, Friend, Guild, Category } from '../types';
 import { Modal, Button, Input } from './Admin/MaterialUI';
 import { fetchAllUsersFromCloud, sendDuelInvite, getMuhafizByUsername, createNewGuild, joinGuild, leaveGuild, fetchAllGuilds } from '../services/firebase';
 import GuildLeaderboard from './GuildLeaderboard';
@@ -7,170 +7,194 @@ import GuildLeaderboard from './GuildLeaderboard';
 interface ProfileDashboardProps {
   user: UserProfile;
   guild: Guild | null;
+  categories: Category[]; // Add categories prop
   onDeleteProfile: () => void;
   onBack: () => void;
   onAdminAccess?: () => void;
 }
 
-const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, onDeleteProfile, onBack, onAdminAccess }) => {
-  const [activeModal, setActiveModal] = useState<'NONE' | 'DELETE_CONFIRM' | 'JOIN_GUILD' | 'INVITE' | 'CREATE_GUILD' | 'FIND_GUILD'>('NONE');
+// Basic User Summary for Search Results
+interface UserSummary {
+  id: string;
+  username: string;
+  level: number;
+}
+
+const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, categories, onDeleteProfile, onBack, onAdminAccess }) => {
+  const [activeModal, setActiveModal] = useState<'NONE' | 'DELETE_CONFIRM' | 'JOIN_GUILD' | 'INVITE' | 'CREATE_GUILD' | 'FIND_GUILD' | 'INVENTORY' | 'KEY_DETAIL'>('NONE');
+  const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
+
+  // Search / Invite State
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [searchResults, setSearchResults] = useState<UserSummary[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [inviteUsername, setInviteUsername] = useState('');
   const [isInvitingDirectly, setIsInvitingDirectly] = useState(false);
 
-  // Guild States
+  // Guild State
+  const [isGuildLoading, setIsGuildLoading] = useState(false);
   const [newGuildName, setNewGuildName] = useState('');
   const [newGuildDesc, setNewGuildDesc] = useState('');
   const [availableGuilds, setAvailableGuilds] = useState<Guild[]>([]);
-  const [isGuildLoading, setIsGuildLoading] = useState(false);
 
-  const handleJoinGuildAction = async (guildId: string) => {
-    setIsGuildLoading(true);
-    const success = await joinGuild(user.id, guildId);
-    if (success) {
-      alert("Loncaya başarıyla katıldınız!");
-      window.location.reload(); // Refresh to sync App.tsx state
-    } else {
-      alert("Loncaya katılamadı.");
+  // Load Guilds when modal opens
+  useEffect(() => {
+    if (activeModal === 'FIND_GUILD') {
+      loadGuilds();
     }
+  }, [activeModal]);
+
+  const loadGuilds = async () => {
+    setIsGuildLoading(true);
+    const guilds = await fetchAllGuilds();
+    setAvailableGuilds(guilds);
     setIsGuildLoading(false);
-    setActiveModal('NONE');
+  };
+
+  // --- Handlers ---
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+      const users = await fetchAllUsersFromCloud();
+      const matches = users
+        .filter(u => u.username.toLowerCase().includes(searchQuery.toLowerCase()) && u.id !== user.id)
+        .map(u => ({ id: u.id, username: u.username, level: u.level }));
+      setSearchResults(matches);
+    } catch (error) {
+      console.error("Arama hatası:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSendInvite = async (targetUser: UserSummary) => {
+    await sendDuelInvite(user.id, user.username, targetUser.id);
+    alert(`⚔️ ${targetUser.username} muhafızına düello daveti gönderildi!`);
+  };
+
+  const handleDirectInvite = async () => {
+    if (!inviteUsername.trim()) return;
+    setIsInvitingDirectly(true);
+    try {
+      const targetUser = await getMuhafizByUsername(inviteUsername);
+      if (targetUser) {
+        await sendDuelInvite(user.id, user.username, targetUser.id);
+        alert(`⚔️ ${targetUser.username} muhafızına düello daveti gönderildi!`);
+        setInviteUsername('');
+      } else {
+        alert("❌ Muhafız bulunamadı.");
+      }
+    } catch (error) {
+      console.error("Davet hatası:", error);
+      alert("Bir hata oluştu.");
+    } finally {
+      setIsInvitingDirectly(false);
+    }
   };
 
   const handleCreateGuild = async () => {
     if (!newGuildName.trim()) return;
     setIsGuildLoading(true);
-    const guildId = await createNewGuild(user.id, user.username, newGuildName.trim(), newGuildDesc.trim());
-    if (guildId) {
-      alert("Loncayı kurdunuz! Sancağınız daim olsun.");
-      window.location.reload();
-    } else {
-      alert("Lonca kurulurken hata oluştu.");
+    try {
+      await createNewGuild(newGuildName, newGuildDesc, user.id);
+      alert("✅ Lonca başarıyla kuruldu!");
+      setActiveModal('NONE');
+      window.location.reload(); // Refresh to update user guild status
+    } catch (error) {
+      console.error("Lonca kurma hatası:", error);
+      alert("Lonca kurulamadı.");
+    } finally {
+      setIsGuildLoading(false);
     }
-    setIsGuildLoading(false);
-    setActiveModal('NONE');
+  };
+
+  const handleJoinGuildAction = async (guildId: string) => {
+    setIsGuildLoading(true);
+    try {
+      await joinGuild(guildId, user.id);
+      alert("✅ Loncaya katıldın!");
+      setActiveModal('NONE');
+      window.location.reload();
+    } catch (error) {
+      console.error("Katılma hatası:", error);
+      alert("Loncaya katılınamadı.");
+    } finally {
+      setIsGuildLoading(false);
+    }
   };
 
   const handleLeaveGuildAction = async () => {
     if (!user.guildId) return;
-    if (!confirm("Loncadan ayrılmak istediğinize emin misiniz? Puan katkınız loncada kalacaktır.")) return;
+    if (!confirm("Loncadan ayrılmak istediğine emin misin?")) return;
 
-    setIsGuildLoading(true);
-    const success = await leaveGuild(user.id, user.guildId);
-    if (success) {
-      alert("Loncadan ayrıldınız.");
+    try {
+      await leaveGuild(user.guildId, user.id);
+      alert("Loncadan ayrıldın.");
       window.location.reload();
-    } else {
-      alert("Ayrılma işlemi başarısız.");
+    } catch (error) {
+      console.error("Ayrılma hatası:", error);
     }
-    setIsGuildLoading(false);
   };
 
-  const handleOpenFindGuild = async () => {
-    setIsGuildLoading(true);
-    const gs = await fetchAllGuilds();
-    setAvailableGuilds(gs);
-    setIsGuildLoading(false);
+  const handleOpenFindGuild = () => {
     setActiveModal('FIND_GUILD');
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
-    const allUsers = await fetchAllUsersFromCloud();
-    const filtered = allUsers.filter(u =>
-      u.id !== user.id &&
-      u.username.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setSearchResults(filtered);
-    setIsSearching(false);
-  };
-
-  const handleSendInvite = async (targetUser: UserProfile) => {
-    if (targetUser.id === user.id) {
-      alert("Kendinize meydan okuyamazsınız!");
-      return;
+  // Helper to find key source
+  const getKeySource = (keyId: string) => {
+    for (const cat of categories) {
+      const node = cat.nodes.find(n => n.rewardKeyId === keyId);
+      if (node) return node.title;
     }
-    const inviteId = await sendDuelInvite(user, targetUser.id);
-    if (inviteId) {
-      alert(`${targetUser.username} adlı muhafıza düello daveti gönderildi!`);
-      setActiveModal('NONE');
-    } else {
-      alert("Davet gönderilemedi. Bir hata oluştu.");
-    }
-  };
-
-  const handleDirectInvite = async () => {
-    if (!inviteUsername.trim()) return;
-    if (inviteUsername.toLowerCase() === user.username.toLowerCase()) {
-      alert("Kendinize meydan okuyamazsınız!");
-      return;
-    }
-
-    setIsInvitingDirectly(true);
-    const targetUser = await getMuhafizByUsername(inviteUsername.trim());
-
-    if (targetUser) {
-      await handleSendInvite(targetUser);
-    } else {
-      alert("Bu isimde bir muhafız bulunamadı. Lütfen tam adı doğru girdiğinizden emin olun.");
-    }
-    setIsInvitingDirectly(false);
+    return "Bilinmeyen Kaynak";
   };
 
   return (
     <>
       <div className="fixed inset-0 z-[150] bg-[#dcdcd7]/98 overflow-y-auto animate-in fade-in duration-300">
-        <div className="min-h-full flex flex-col items-center py-10 px-4 md:px-10">
-          <div className="w-full max-w-4xl parchment-bg gold-border relative rounded-sm p-6 md:p-12 flex flex-col shadow-2xl animate-in zoom-in duration-500 my-auto">
-            {/* ... corners ... */}
-            <div className="ornate-corner corner-tl"></div>
-            <div className="ornate-corner corner-tr"></div>
-            <div className="ornate-corner corner-bl"></div>
-            <div className="ornate-corner corner-br"></div>
+        <div className="max-w-4xl mx-auto p-6 md:p-12 relative">
+          <button
+            onClick={onBack}
+            className="absolute top-6 left-6 text-[#8b7d6b] font-display text-xs tracking-widest hover:text-black uppercase font-black"
+          >
+            ← GERİ DÖN
+          </button>
 
-            <header className="flex flex-col md:flex-row justify-between items-start mb-12 gap-6 pt-4">
-              <div className="flex-grow">
-                <h1 className="font-display text-3xl md:text-5xl text-[#8b7d6b] tracking-[0.2em] uppercase font-black leading-tight">MUHAFIZ ARŞİVİ</h1>
-                <p className="text-stone-600 text-[10px] md:text-[12px] uppercase tracking-[0.6em] font-extrabold mt-2">KİMLİK NO: {user.id.split('-')[1]}</p>
-              </div>
-              <button onClick={onBack} className="w-full md:w-auto text-[#8b7d6b] hover:text-black font-display text-sm tracking-widest uppercase font-black border-2 border-[#8b7d6b]/30 px-6 py-2 rounded-sm hover:bg-[#8b7d6b]/10 transition-all">KAPAT [×]</button>
-            </header>
+          {/* Admin Access Hidden Trigger */}
+          <div className="absolute top-6 right-6 w-8 h-8 cursor-pointer opacity-10 hover:opacity-100 transition-opacity" onClick={onAdminAccess}>
+            <span className="text-2xl">⚡</span>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 flex-grow">
-              {/* Sol Kolon: Ana İstatistikler */}
-              <div className="space-y-10 flex flex-col items-center md:items-stretch">
-                <div className="relative group cursor-help w-fit mx-auto" onClick={onAdminAccess}>
-                  <div className="w-32 h-32 md:w-40 md:h-40 brass-texture rounded-full flex items-center justify-center border-4 border-[#8b7d6b] shadow-2xl relative overflow-hidden">
-                    <span className="text-6xl md:text-7xl">💂</span>
-                  </div>
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#8b7d6b] text-[#dcdcd7] px-6 py-1.5 rounded-full font-display text-[10px] tracking-widest font-black shadow-xl">
-                    SEVİYE {user.level}
-                  </div>
-                </div>
+          <header className="text-center mb-16 pt-8">
+            <div className="w-24 h-24 bg-[#8b7d6b] rounded-full mx-auto mb-6 flex items-center justify-center shadow-xl border-4 border-[#dcdcd7] outline outline-1 outline-[#8b7d6b]">
+              <span className="text-4xl text-[#dcdcd7]">💂</span>
+            </div>
+            <h2 className="text-3xl font-display text-stone-800 tracking-[0.2em] font-black uppercase mb-2">{user.username}</h2>
+            <div className="flex justify-center gap-4 text-[10px] tracking-[0.2em] font-black uppercase text-[#8b7d6b]">
+              <span>SEVİYE {user.level}</span>
+              <span>•</span>
+              <span>{user.xp} XP / {user.level * 1000}</span>
+            </div>
+          </header>
 
-                <div className="text-center">
-                  <h2 className="font-display text-2xl text-stone-900 font-black tracking-widest">{user.username.toUpperCase()}</h2>
-                  <p className="text-[#8b7d6b] font-serif-vintage italic text-lg mt-1 font-bold">Kadim Tarih Muhafızı</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
 
-                <div className="space-y-5 pt-6 border-t-2 border-[#8b7d6b]/20 w-full">
-                  <div className="flex justify-between items-center text-[10px] font-black text-stone-700 uppercase tracking-widest">
-                    <span>GELİŞİM (XP)</span>
-                    <span>{user.xp} / {user.level * 1000}</span>
-                  </div>
-                  <div className="w-full h-3 bg-stone-200 rounded-full overflow-hidden shadow-inner">
-                    <div className="h-full bg-[#8b7d6b] shadow-[0_0_15px_rgba(139,125,107,0.5)]" style={{ width: `${(user.xp / (user.level * 1000)) * 100}%` }}></div>
-                  </div>
-                </div>
+            {/* Sol Kolon: İstatistikler */}
+            <div className="space-y-8">
+              <div className="bg-white/60 p-8 rounded-sm border border-[#8b7d6b]/20 shadow-sm relative overflow-hidden group hover:border-[#8b7d6b]/40 transition-colors">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-[#8b7d6b]/10 -mr-8 -mt-8 rounded-full"></div>
+                <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">KİŞİSEL KAYITLAR</h3>
 
-                <div className="grid grid-cols-2 gap-4 w-full">
-                  <div className="bg-white/60 p-4 rounded border border-[#8b7d6b]/20 text-center shadow-sm">
-                    <span className="block text-2xl mb-1">🗝️</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div
+                    onClick={() => setActiveModal('INVENTORY')}
+                    className="bg-white/60 p-4 rounded border border-[#8b7d6b]/20 text-center shadow-sm cursor-pointer hover:bg-[#8b7d6b]/10 transition-colors group"
+                  >
+                    <span className="block text-2xl mb-1 group-hover:scale-110 transition-transform">🗝️</span>
                     <span className="block text-[#8b7d6b] font-display text-xl font-black">{user.unlockedKeys.length}</span>
-                    <span className="text-[8px] text-stone-500 uppercase font-black tracking-tighter">Mühür</span>
+                    <span className="text-[8px] text-stone-500 uppercase font-black tracking-tighter group-hover:text-[#8b7d6b]">Mühür Koleksiyonu</span>
                   </div>
                   <div className="bg-white/60 p-4 rounded border border-[#8b7d6b]/20 text-center shadow-sm">
                     <span className="block text-2xl mb-1">🤝</span>
@@ -178,83 +202,94 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, onDele
                     <span className="text-[8px] text-stone-500 uppercase font-black tracking-tighter">Dost</span>
                   </div>
                 </div>
-              </div>
 
-              {/* Orta Kolon: Sosyal Hub & Lonca */}
-              <div className="md:col-span-2 space-y-12">
-                <div className="bg-[#8b7d6b]/5 p-6 md:p-8 rounded border border-[#8b7d6b]/30 shadow-inner">
-                  <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">MUHAFIZ BİRLİĞİ (LONCA)</h3>
-                  {guild ? (
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <div>
-                        <span className="text-2xl font-display text-stone-800 tracking-[0.2em] font-black">{guild.name.toUpperCase()}</span>
-                        <p className="text-[10px] text-stone-500 uppercase font-extrabold mt-2">{guild.members.length} AKTİF MUHAFIZ | {guild.totalScore} TOPLAM KUDRET</p>
-                        <p className="text-[9px] text-stone-400 italic mt-1">"{guild.description}"</p>
-                      </div>
-                      <button
-                        onClick={handleLeaveGuildAction}
-                        className="text-[10px] text-red-800 border-2 border-red-800/30 px-5 py-2 hover:bg-red-800 hover:text-white transition-all uppercase font-black"
-                      >
-                        AYRIL
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-stone-600 font-serif-vintage italic mb-6 text-lg">Henüz bir birliğe dahil olmadınız, muhafız.</p>
-                      <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button
-                          onClick={handleOpenFindGuild}
-                          className="px-10 py-3 bg-[#8b7d6b] text-[#dcdcd7] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-black transition-all font-black shadow-lg"
-                        >
-                          LONCA BUL
-                        </button>
-                        <button
-                          onClick={() => setActiveModal('CREATE_GUILD')}
-                          className="px-10 py-3 border-2 border-[#8b7d6b] text-[#8b7d6b] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-[#8b7d6b] hover:text-[#dcdcd7] transition-all font-black"
-                        >
-                          YENİ LONCA KUR
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <GuildLeaderboard guilds={availableGuilds.length > 0 ? availableGuilds : []} />
-
-                <div>
-                  <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">DOSTLAR VE RAKİPLER</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {user.friends.map(friend => (
-                      <div key={friend.id} className="flex items-center gap-5 bg-white/70 p-4 rounded border border-[#8b7d6b]/10 hover:border-[#8b7d6b]/40 transition-all shadow-sm">
-                        <div className={`w-3 h-3 rounded-full ${friend.status === 'ONLINE' ? 'bg-green-600 shadow-[0_0_10px_green]' : 'bg-stone-300'}`}></div>
-                        <div className="flex-grow">
-                          <span className="text-stone-800 font-display text-[11px] tracking-widest font-black">{friend.name.toUpperCase()}</span>
-                          <p className="text-[9px] text-stone-500 uppercase font-bold mt-1">SEVİYE {friend.level}</p>
-                        </div>
-                        <button className="text-stone-300 hover:text-red-600 text-lg transition-colors font-bold">×</button>
-                      </div>
+                <div className="mt-6">
+                  <h4 className="text-[10px] font-black uppercase text-stone-400 mb-2 tracking-widest">BAŞARIMLAR</h4>
+                  <div className="flex gap-2 flex-wrap">
+                    {user.achievements.map((ach, idx) => (
+                      <span key={idx} className="px-2 py-1 bg-amber-100 text-amber-800 text-[9px] font-bold rounded border border-amber-200 uppercase tracking-wide">{ach.replace('_', ' ')}</span>
                     ))}
-                    <button
-                      onClick={() => setActiveModal('INVITE')}
-                      className="border-3 border-dashed border-[#8b7d6b]/20 p-4 rounded flex items-center justify-center text-stone-400 hover:border-[#8b7d6b]/50 hover:text-[#8b7d6b] transition-all text-[10px] font-black uppercase tracking-widest"
-                    >
-                      + YENİ DÜELLO / DOST ARA
-                    </button>
+                    {user.achievements.length === 0 && <span className="text-[9px] text-stone-400 italic">Henüz başarım kilidi açılmadı.</span>}
                   </div>
                 </div>
               </div>
             </div>
 
-            <footer className="mt-16 pt-10 border-t-2 border-[#8b7d6b]/20 flex flex-col md:flex-row justify-between items-center gap-8">
-              <p className="text-[10px] text-stone-500 uppercase tracking-[0.4em] font-extrabold italic text-center md:text-left">Tarih, onu mühürleyenlerin elinde şekillenir.</p>
-              <button
-                onClick={() => setActiveModal('DELETE_CONFIRM')}
-                className="w-full md:w-auto px-8 py-3 border-2 border-red-800/30 text-red-800 font-display text-[10px] tracking-[0.3em] uppercase hover:bg-red-800 hover:text-white transition-all font-black"
-              >
-                ARŞİVİ SIFIRLA VE SİL
-              </button>
-            </footer>
-          </div>
+            {/* Orta Kolon: Sosyal Hub & Lonca */}
+            <div className="md:col-span-1 space-y-12">
+              <div className="bg-[#8b7d6b]/5 p-6 md:p-8 rounded border border-[#8b7d6b]/30 shadow-inner">
+                <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">MUHAFIZ BİRLİĞİ (LONCA)</h3>
+                {guild ? (
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <span className="text-2xl font-display text-stone-800 tracking-[0.2em] font-black">{guild.name.toUpperCase()}</span>
+                      <p className="text-[10px] text-stone-500 uppercase font-extrabold mt-2">{guild.members.length} AKTİF MUHAFIZ | {guild.totalScore} TOPLAM KUDRET</p>
+                      <p className="text-[9px] text-stone-400 italic mt-1">"{guild.description}"</p>
+                    </div>
+                    <button
+                      onClick={handleLeaveGuildAction}
+                      className="text-[10px] text-red-800 border-2 border-red-800/30 px-5 py-2 hover:bg-red-800 hover:text-white transition-all uppercase font-black"
+                    >
+                      AYRIL
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-stone-600 font-serif-vintage italic mb-6 text-lg">Henüz bir birliğe dahil olmadınız, muhafız.</p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                      <button
+                        onClick={handleOpenFindGuild}
+                        className="px-10 py-3 bg-[#8b7d6b] text-[#dcdcd7] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-black transition-all font-black shadow-lg"
+                      >
+                        LONCA BUL
+                      </button>
+                      <button
+                        onClick={() => setActiveModal('CREATE_GUILD')}
+                        className="px-10 py-3 border-2 border-[#8b7d6b] text-[#8b7d6b] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-[#8b7d6b] hover:text-[#dcdcd7] transition-all font-black"
+                      >
+                        YENİ LONCA KUR
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <GuildLeaderboard guilds={availableGuilds.length > 0 ? availableGuilds : []} />
+
+              <div>
+                <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">DOSTLAR VE RAKİPLER</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {user.friends.map(friend => (
+                    <div key={friend.id} className="flex items-center gap-5 bg-white/70 p-4 rounded border border-[#8b7d6b]/10 hover:border-[#8b7d6b]/40 transition-all shadow-sm">
+                      <div className={`w-3 h-3 rounded-full ${friend.status === 'ONLINE' ? 'bg-green-600 shadow-[0_0_10px_green]' : 'bg-stone-300'}`}></div>
+                      <div className="flex-grow">
+                        <span className="text-stone-800 font-display text-[11px] tracking-widest font-black">{friend.name.toUpperCase()}</span>
+                        <p className="text-[9px] text-stone-500 uppercase font-bold mt-1">SEVİYE {friend.level}</p>
+                      </div>
+                      <button className="text-stone-300 hover:text-red-600 text-lg transition-colors font-bold">×</button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setActiveModal('INVITE')}
+                    className="border-3 border-dashed border-[#8b7d6b]/20 p-4 rounded flex items-center justify-center text-stone-400 hover:border-[#8b7d6b]/50 hover:text-[#8b7d6b] transition-all text-[10px] font-black uppercase tracking-widest"
+                  >
+                    + YENİ DÜELLO / DOST ARA
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div> {/* End Grid */}
+
+          <footer className="mt-16 pt-10 border-t-2 border-[#8b7d6b]/20 flex flex-col md:flex-row justify-between items-center gap-8">
+            <p className="text-[10px] text-stone-500 uppercase tracking-[0.4em] font-extrabold italic text-center md:text-left">Tarih, onu mühürleyenlerin elinde şekillenir.</p>
+            <button
+              onClick={() => setActiveModal('DELETE_CONFIRM')}
+              className="w-full md:w-auto px-8 py-3 border-2 border-red-800/30 text-red-800 font-display text-[10px] tracking-[0.3em] uppercase hover:bg-red-800 hover:text-white transition-all font-black"
+            >
+              ARŞİVİ SIFIRLA VE SİL
+            </button>
+          </footer>
         </div>
       </div>
 
@@ -373,6 +408,54 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, onDele
                 <Button size="sm" onClick={() => handleJoinGuildAction(g.id)} disabled={isGuildLoading}>KATIL</Button>
               </div>
             ))}
+          </div>
+        </div>
+      </Modal>
+
+      {/* INVENTORY MODAL */}
+      <Modal
+        isOpen={activeModal === 'INVENTORY'}
+        onClose={() => setActiveModal('NONE')}
+        title="MÜHÜR KOLEKSİYONU"
+        actions={<Button variant="ghost" onClick={() => setActiveModal('NONE')}>KAPAT</Button>}
+      >
+        <div className="grid grid-cols-4 gap-4 p-2">
+          {user.unlockedKeys.length === 0 ? (
+            <p className="col-span-4 text-center text-stone-500 italic text-xs py-4">Henüz hiç mühür toplamadınız.</p>
+          ) : (
+            user.unlockedKeys.map((keyId, idx) => (
+              <div
+                key={idx}
+                onClick={() => { setSelectedKeyId(keyId); setActiveModal('KEY_DETAIL'); }}
+                className="aspect-square bg-[#8b7d6b]/10 rounded border border-[#8b7d6b]/30 flex items-center justify-center cursor-pointer hover:bg-[#8b7d6b]/20 hover:scale-105 transition-all"
+              >
+                <span className="text-2xl drop-shadow-md">🗝️</span>
+              </div>
+            ))
+          )}
+        </div>
+      </Modal>
+
+      {/* KEY DETAIL MODAL */}
+      <Modal
+        isOpen={activeModal === 'KEY_DETAIL'}
+        onClose={() => setActiveModal('INVENTORY')} // Back to Inventory
+        title="MÜHÜR DETAYI"
+        actions={<Button variant="ghost" onClick={() => setActiveModal('INVENTORY')}>GERİ DÖN</Button>}
+      >
+        <div className="flex flex-col items-center justify-center py-8">
+          {/* Rotating Key Animation */}
+          <div className="w-32 h-32 relative animate-float-key mb-8">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full border-4 border-amber-600 brass-texture shadow-2xl" />
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 w-4 h-20 brass-texture shadow-2xl" />
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-6 brass-texture shadow-2xl rounded-sm" />
+          </div>
+
+          <h3 className="font-display text-[#8b7d6b] text-lg font-black tracking-widest uppercase mb-2">KAZANILAN YER</h3>
+          <div className="px-6 py-2 bg-[#8b7d6b]/10 rounded-full border border-[#8b7d6b]/30">
+            <p className="text-stone-700 font-bold text-xs uppercase typing-demo">
+              {selectedKeyId ? getKeySource(selectedKeyId) : "..."}
+            </p>
           </div>
         </div>
       </Modal>

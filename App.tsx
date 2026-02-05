@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { INITIAL_CATEGORIES, INITIAL_ERAS } from './constants';
-import { syncUserProfileToCloud, listenForInvites, respondToInvite, createDuelSession, updateDuelScore, updateDuelMove, listenToDuelSession, finishDuelSession, fetchGuildDetails, fetchAllGuilds, fetchAllUsersFromCloud, updateGuildScore } from './services/firebase';
-import { GameState, QuestStatus, RiddleNode, GameMode, TeamProgress, UserProfile, Invite, DuelSession } from './types';
+import { syncUserProfileToCloud, listenForInvites, respondToInvite, createDuelSession, updateDuelScore, updateDuelMove, listenToDuelSession, finishDuelSession, fetchAllGuilds, fetchAllUsersFromCloud, updateGuildScore } from './services/firebase';
+import { GameState, QuestStatus, RiddleNode, GameMode, TeamProgress, UserProfile, Invite, DuelSession, Category } from './types';
 import { loadGameState, saveGameState, clearDatabase } from './services/db';
 import MysteryBox from './components/MysteryBox';
 import Stats from './components/Stats';
@@ -15,6 +15,7 @@ import CategorySelector from './components/CategorySelector';
 import ProfileDashboard from './components/ProfileDashboard';
 import InviteManager from './components/Duel/InviteManager';
 import UserLogin from './components/UserLogin';
+import KeyUnlockSequence from './components/KeyUnlockSequence';
 
 import TermsModal from './components/TermsModal';
 
@@ -29,6 +30,10 @@ const App: React.FC = () => {
   const [showTerms, setShowTerms] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [duelSession, setDuelSession] = useState<DuelSession | null>(null);
+
+  // Animation State
+  const [pendingRewardNode, setPendingRewardNode] = useState<RiddleNode | null>(null);
+  const [showUnlockAnimation, setShowUnlockAnimation] = useState(false);
 
   // Unified Navigation State
   const [view, setView] = useState<AppView>('LANDING');
@@ -76,7 +81,7 @@ const App: React.FC = () => {
     const team1: TeamProgress = { name: invite.fromName, currentStage: 0, unlockedKeys: [], score: 0 };
     const team2: TeamProgress = { name: gameState.user!.username, currentStage: 0, unlockedKeys: [], score: 0 };
 
-    setGameState(prev => {
+    setGameState((prev: GameState | null) => {
       if (!prev) return null;
       return {
         ...prev,
@@ -98,7 +103,7 @@ const App: React.FC = () => {
 
   const handleRejectInvite = async (invite: Invite) => {
     await respondToInvite(invite.id, 'REJECTED');
-    setInvites(prev => prev.filter(i => i.id !== invite.id));
+    setInvites((prev: Invite[]) => prev.filter((i: Invite) => i.id !== invite.id));
   };
 
   // Real-time Duel Sync
@@ -108,18 +113,18 @@ const App: React.FC = () => {
         setDuelSession(session);
 
         // Sync teams in GameState if session changed
-        setGameState(prev => {
+        setGameState((prev: GameState | null) => {
           if (!prev || !prev.user) return prev;
 
           const updatedTeams = [...prev.teams];
-          const p1TeamIdx = prev.teams.findIndex(t => t.name === session.player1.name);
-          const p2TeamIdx = prev.teams.findIndex(t => t.name === session.player2.name);
+          const p1TeamIdx = prev.teams.findIndex((t: TeamProgress) => t.name === session.player1.name);
+          const p2TeamIdx = prev.teams.findIndex((t: TeamProgress) => t.name === session.player2.name);
 
           if (p1TeamIdx > -1) updatedTeams[p1TeamIdx].score = session.player1.score;
           if (p2TeamIdx > -1) updatedTeams[p2TeamIdx].score = session.player2.score;
 
           // Check for Completion
-          const totalNodes = prev.categories.find(c => c.id === prev.activeCategoryId)?.nodes.length || 0;
+          const totalNodes = prev.categories.find((c: Category) => c.id === prev.activeCategoryId)?.nodes.length || 0;
           if (totalNodes > 0 && session.moves.length >= totalNodes && session.status === 'ACTIVE') {
             const isMePlayer1 = session.player1.id === prev.user.id;
             const myScore = isMePlayer1 ? session.player1.score : session.player2.score;
@@ -140,7 +145,9 @@ const App: React.FC = () => {
             }
 
             alert(resultMsg);
-            finishDuelSession(prev.activeDuelId);
+            if (prev.activeDuelId) {
+              finishDuelSession(prev.activeDuelId);
+            }
 
             // Update user XP
             const updatedUser = { ...prev.user, xp: Math.max(0, prev.user.xp + xpChange) };
@@ -148,11 +155,12 @@ const App: React.FC = () => {
             return {
               ...prev,
               user: updatedUser,
-              mode: 'SINGLE',
+              mode: 'SOLO',
               activeDuelId: null,
               activeWager: null,
               gameStarted: false,
-              setupComplete: true
+              setupComplete: true,
+              isArchiveOpen: false
             };
           }
 
@@ -252,38 +260,10 @@ const App: React.FC = () => {
     }
   }, [gameState]);
 
-  // Admin Auto-Login Logic
-  useEffect(() => {
-    if (isAdminAuthenticated && (gameState?.user?.id !== 'admin-superuser')) {
-      // Auto-create Admin User context
-      const adminUser: UserProfile = {
-        id: 'admin-superuser',
-        username: 'Yönetici (Admin)',
-        level: 99,
-        xp: 99999,
-        unlockedKeys: [],
-        friends: [],
-        guildId: null,
-        achievements: ['GAME_MASTER']
-      };
 
-      const currentCategories = gameState?.categories || INITIAL_CATEGORIES;
-      const team: TeamProgress = { name: 'Admin Team', currentStage: 0, unlockedKeys: [], score: 0 };
+  // Admin Auto-Login Logic: Removed as per user request to remove simulation/test code.
+  // Real admins must log in via the AdminLogin component which validates against Firebase.
 
-      setGameState({
-        user: adminUser,
-        categories: currentCategories,
-        activeCategoryId: null,
-        mode: 'SINGLE',
-        teams: [team],
-        activeTeamIndex: 0,
-        setupComplete: true,
-        gameStarted: false,
-        availableGuilds: []
-      });
-      // If admin authenticated, usually they want internal access, but let's stick to Landing for nav
-    }
-  }, [isAdminAuthenticated, gameState]);
 
   const handleSetupComplete = (mode: GameMode, names: string[], pin: string) => {
     const currentCategories = gameState?.categories && gameState.categories.length > 0
@@ -316,11 +296,12 @@ const App: React.FC = () => {
       activeSubTopicId: null,
       activeDuelId: null,
       activeWager: null,
-      mode,
-      teams,
+      mode: mode as GameMode,
+      teams: teams,
       activeTeamIndex: 0,
       setupComplete: true,
       gameStarted: false,
+      isArchiveOpen: false,
       availableGuilds: []
     });
 
@@ -394,6 +375,23 @@ const App: React.FC = () => {
       }
     }
 
+    // 1. Trigger Animation Phase
+    if (selectedNode) {
+      setPendingRewardNode(selectedNode);
+      setShowUnlockAnimation(true);
+      setIsARActive(false); // Close AR, open Animation Overlay
+    }
+  }, [selectedNode, gameState, duelSession]);
+
+  const finalizeRewardCollection = useCallback(() => {
+    if (!pendingRewardNode || !gameState || !gameState.activeCategoryId) {
+      setShowUnlockAnimation(false);
+      setPendingRewardNode(null);
+      return;
+    }
+
+    const rewardNode = pendingRewardNode;
+
     setGameState(prev => {
       if (!prev || !prev.activeCategoryId || !prev.user) return prev;
 
@@ -405,16 +403,19 @@ const App: React.FC = () => {
       if (categoryIdx === -1) return prev;
 
       const category = prev.categories[categoryIdx];
-      const nodeIndex = category.nodes.findIndex(n => n.id === selectedNode.id);
+      const nodeIndex = category.nodes.findIndex(n => n.id === rewardNode.id);
 
-      team.unlockedKeys = [...team.unlockedKeys, selectedNode.rewardKeyId];
+      // Avoid double collection if already unlocked (safety check)
+      if (team.unlockedKeys.includes(rewardNode.rewardKeyId)) return prev;
+
+      team.unlockedKeys = [...team.unlockedKeys, rewardNode.rewardKeyId];
       team.currentStage += 1;
       const pointsEarned = 150;
       team.score += pointsEarned;
 
       const updatedUser = { ...prev.user };
       updatedUser.xp += 250;
-      updatedUser.unlockedKeys = [...updatedUser.unlockedKeys, selectedNode.rewardKeyId];
+      updatedUser.unlockedKeys = [...updatedUser.unlockedKeys, rewardNode.rewardKeyId];
       if (updatedUser.xp >= updatedUser.level * 1000) {
         updatedUser.level += 1;
         updatedUser.xp = 0;
@@ -427,6 +428,7 @@ const App: React.FC = () => {
       const nextIdx = updatedNodes.findIndex((n, i) => i > nodeIndex && n.status === QuestStatus.LOCKED);
       if (nextIdx > -1) {
         updatedNodes[nextIdx].status = QuestStatus.AVAILABLE;
+        // Optionally auto-select the next node logic could go here if we wanted to pop it up immediately
       }
 
       updatedCategories[categoryIdx] = { ...category, nodes: updatedNodes };
@@ -438,7 +440,7 @@ const App: React.FC = () => {
         const playerField = isPlayer1 ? 'player1' : 'player2';
         const opponentId = isPlayer1 ? duelSession.player2.id : duelSession.player1.id;
 
-        updateDuelMove(prev.activeDuelId, prev.user.id, selectedNode.id, pointsEarned, opponentId);
+        updateDuelMove(prev.activeDuelId, prev.user.id, rewardNode.id, pointsEarned, opponentId);
         updateDuelScore(prev.activeDuelId, playerField, pointsEarned);
       }
 
@@ -457,9 +459,11 @@ const App: React.FC = () => {
       };
     });
 
-    setIsARActive(false);
+    setShowUnlockAnimation(false);
+    setPendingRewardNode(null);
     setSelectedNode(null);
-  }, [selectedNode, gameState, duelSession]);
+
+  }, [pendingRewardNode, gameState, duelSession]);
 
   if (isLoading) {
     return (
@@ -488,6 +492,7 @@ const App: React.FC = () => {
       <ProfileDashboard
         user={gameState.user}
         guild={gameState.availableGuilds?.find(g => g.id === gameState.user?.guildId) || null}
+        categories={gameState.categories} // Pass categories for key lookup
         onDeleteProfile={() => { clearDatabase(); window.location.reload(); }}
         onBack={() => setView('LANDING')}
         onAdminAccess={() => { }} // Disabled quick access from here to keep UI clean, or re-enable if needed
@@ -559,6 +564,14 @@ const App: React.FC = () => {
         )}
         {isARActive && selectedNode && (
           <ARView rewardId={selectedNode.rewardKeyId} onCollect={handleCollectReward} />
+        )}
+
+        {/* Key Unlock Animation Overlay */}
+        {showUnlockAnimation && (
+          <KeyUnlockSequence
+            onComplete={finalizeRewardCollection}
+            nodeTitle={pendingRewardNode?.title}
+          />
         )}
       </div>
     );
@@ -665,11 +678,12 @@ const App: React.FC = () => {
                 activeSubTopicId: null,
                 activeDuelId: null,
                 activeWager: null,
-                mode: 'SINGLE',
+                mode: 'SOLO',
                 teams: teams,
                 activeTeamIndex: 0,
                 setupComplete: true,
                 gameStarted: false,
+                isArchiveOpen: false,
                 availableGuilds: []
               });
               setView('LANDING');

@@ -14,6 +14,7 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
+
 // Initialize Firebase only if config is present (prevents crash on first run)
 export let app: any;
 export let db: any;
@@ -24,17 +25,11 @@ try {
   db = getFirestore(app);
   auth = getAuth(app);
 } catch (e) {
-  console.warn("Firebase config missing or invalid. Using local fallback.");
+  console.warn("Firebase config missing or invalid.");
 }
 
-// Fallback in-memory DB for development if keys aren't set
-let CLOUD_DATABASE = {
-  categories: [] as Category[],
-  users: [] as UserProfile[]
-};
-
 export const syncCategoriesToCloud = async (categories: Category[]): Promise<boolean> => {
-  if (!db) return true;
+  if (!db) return false;
   try {
     // Save entire categories array as a single document for simplicity in this game model
     // In a larger app, you'd save each category independently
@@ -47,7 +42,7 @@ export const syncCategoriesToCloud = async (categories: Category[]): Promise<boo
 };
 
 export const fetchAllUsersFromCloud = async (): Promise<UserProfile[]> => {
-  if (!db) return CLOUD_DATABASE.users;
+  if (!db) return [];
   try {
     const querySnapshot = await getDocs(collection(db, "users"));
     const users: UserProfile[] = [];
@@ -62,10 +57,7 @@ export const fetchAllUsersFromCloud = async (): Promise<UserProfile[]> => {
 };
 
 export const deleteUserFromCloud = async (userId: string): Promise<boolean> => {
-  if (!db) {
-    CLOUD_DATABASE.users = CLOUD_DATABASE.users.filter(u => u.id !== userId);
-    return true;
-  }
+  if (!db) return false;
   try {
     await deleteDoc(doc(db, "users", userId));
     return true;
@@ -106,12 +98,7 @@ export const logout = async (): Promise<void> => {
 };
 
 export const syncUserProfileToCloud = async (user: UserProfile): Promise<void> => {
-  if (!db) {
-    const idx = CLOUD_DATABASE.users.findIndex(u => u.id === user.id);
-    if (idx > -1) CLOUD_DATABASE.users[idx] = { ...user };
-    else CLOUD_DATABASE.users.push({ ...user });
-    return;
-  }
+  if (!db) return;
   try {
     await setDoc(doc(db, "users", user.id), user, { merge: true });
   } catch (e) {
@@ -125,7 +112,7 @@ export interface SystemSettings {
 }
 
 export const saveSystemSettings = async (settings: SystemSettings): Promise<boolean> => {
-  if (!db) return true;
+  if (!db) return false;
   try {
     await setDoc(doc(db, "system", "settings"), settings);
     return true;
