@@ -1,11 +1,5 @@
 {
   "projects": {
     "default": "tarihoyun-2026"
-  },
-  "targets": {
-    "tarihoyun-2026": {
-      "hosting": {}
-    }
-  },
-  "etags": {}
+  }
 }
