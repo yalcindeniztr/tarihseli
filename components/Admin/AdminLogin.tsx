@@ -16,7 +16,9 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onCancel }) => {
         setError(null);
         const success = await loginWithGoogle();
         if (success) {
-            onSuccess();
+            setTimeout(() => {
+                onSuccess();
+            }, 100);
         } else {
             setError("Giriş yapılamadı. Lütfen tekrar deneyin.");
             setLoading(false);

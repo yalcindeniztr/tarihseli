@@ -30,6 +30,20 @@ const App: React.FC = () => {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [duelSession, setDuelSession] = useState<DuelSession | null>(null);
 
+  // --- Admin Persistence ---
+  useEffect(() => {
+    const savedAdminOpen = sessionStorage.getItem('ADMIN_OPEN') === 'true';
+    const savedAdminAuth = sessionStorage.getItem('ADMIN_AUTH') === 'true';
+    if (savedAdminOpen) setIsAdminOpen(true);
+    if (savedAdminAuth) setIsAdminAuthenticated(true);
+  }, []);
+
+  useEffect(() => {
+    sessionStorage.setItem('ADMIN_OPEN', isAdminOpen.toString());
+    sessionStorage.setItem('ADMIN_AUTH', isAdminAuthenticated.toString());
+  }, [isAdminOpen, isAdminAuthenticated]);
+  // --------------------------
+
   // Check Terms Acceptance on Mount
   useEffect(() => {
     const accepted = localStorage.getItem('TERMS_ACCEPTED_V1');
@@ -246,7 +260,7 @@ const App: React.FC = () => {
 
   // Admin Auto-Login Logic
   useEffect(() => {
-    if (isAdminAuthenticated && (!gameState?.user)) {
+    if (isAdminAuthenticated && (gameState?.user?.id !== 'admin-superuser')) {
       // Auto-create Admin User context
       const adminUser: UserProfile = {
         id: 'admin-superuser',
@@ -579,10 +593,21 @@ const App: React.FC = () => {
 
       {/* Overlays */}
       {selectedNode && (
-        <div className="fixed inset-0 z-[100] bg-[#dcdcd7]/80 backdrop-blur-md flex items-center justify-center p-6 overflow-y-auto">
-          <div className="w-full max-w-md relative my-auto">
-            <button onClick={() => setSelectedNode(null)} className="absolute -top-16 right-0 text-[#8b7d6b] font-display text-xs tracking-widest uppercase font-bold">KAPAT [×]</button>
-            <MysteryBox node={selectedNode} onSuccess={() => setIsARActive(true)} />
+        <div className="fixed inset-0 z-[100] bg-[#dcdcd7]/80 backdrop-blur-md flex items-center justify-center p-4 md:p-12 overflow-y-auto">
+          <div className="w-full md:w-[75vw] lg:w-[70vw] max-w-5xl relative my-auto animate-in zoom-in duration-500">
+            <button
+              onClick={() => setSelectedNode(null)}
+              className="absolute -top-12 md:-top-16 right-0 text-[#8b7d6b] font-display text-xs tracking-widest uppercase font-bold hover:text-black transition-colors"
+            >
+              KAPAT [×]
+            </button>
+            <MysteryBox
+              node={selectedNode}
+              onSuccess={() => {
+                setSelectedNode(null); // Close modal first to reveal AR/Progress
+                setIsARActive(true);
+              }}
+            />
           </div>
         </div>
       )}

@@ -47,7 +47,7 @@ const MysteryBox: React.FC<MysteryBoxProps> = ({ node, onSuccess }) => {
   };
 
   return (
-    <div className="relative w-full max-w-lg mx-auto p-12 rounded-sm parchment-bg gold-border shadow-[0_50px_100px_rgba(0,0,0,0.3)] overflow-hidden transition-all duration-500">
+    <div className="relative w-full mx-auto p-12 rounded-sm parchment-bg gold-border shadow-[0_50px_100px_rgba(0,0,0,0.3)] overflow-hidden transition-all duration-500">
       <div className="absolute inset-0 texture-overlay opacity-10" />
       <div className="ornate-corner corner-tl opacity-50"></div>
       <div className="ornate-corner corner-tr opacity-50"></div>

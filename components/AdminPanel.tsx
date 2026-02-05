@@ -304,17 +304,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
               <Button onClick={handleAddCategory} startIcon="+">Yeni Dönem</Button>
             </div>
 
-            <div className="flex gap-4 overflow-x-auto pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
               {categories.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCatId(cat.id)}
-                  className={`px-6 py-4 rounded-xl font-bold text-sm transition-all whitespace-nowrap shadow-sm border ${selectedCatId === cat.id
+                  className={`px-6 py-4 rounded-xl font-bold text-sm transition-all shadow-sm border text-left ${selectedCatId === cat.id
                     ? 'bg-blue-600 border-blue-600 text-white shadow-blue-500/30'
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                     }`}
                 >
-                  {cat.name}
+                  <div className="flex justify-between items-center">
+                    <span>{cat.name}</span>
+                    <span className="text-[10px] opacity-60 font-medium">{cat.nodes.length} Aşama</span>
+                  </div>
                 </button>
               ))}
             </div>
