@@ -12,15 +12,19 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onCancel }) => {
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
+        if (loading) return; // Prevent double clicks
         setLoading(true);
         setError(null);
-        const success = await loginWithGoogle();
-        if (success) {
-            setTimeout(() => {
+        try {
+            const success = await loginWithGoogle();
+            if (success) {
                 onSuccess();
-            }, 100);
-        } else {
-            setError("Giriş yapılamadı. Lütfen tekrar deneyin.");
+            } else {
+                setError("Yetkisiz e-posta veya giriş iptal edildi.");
+                setLoading(false);
+            }
+        } catch (err) {
+            setError("Giriş sırasında bir hata oluştu.");
             setLoading(false);
         }
     };
