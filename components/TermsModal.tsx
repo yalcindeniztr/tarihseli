@@ -68,7 +68,10 @@ const TermsModal: React.FC<TermsModalProps> = ({ onAccept, isOpen }) => {
 
                 {/* Footer */}
                 <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-xl flex flex-col gap-4">
-                    <label className="flex items-center gap-3 cursor-pointer select-none group">
+                    <label
+                        className="flex items-center gap-3 cursor-pointer select-none group"
+                        onClick={() => setIsChecked(!isChecked)}
+                    >
                         <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${isChecked ? 'bg-blue-600 border-blue-600' : 'border-slate-300 bg-white group-hover:border-blue-400'}`}>
                             {isChecked && <span className="text-white font-bold text-sm">✓</span>}
                         </div>

@@ -107,6 +107,69 @@ export const INITIAL_CATEGORIES: Category[] = [
         order: 0
       }
     ]
+  },
+  {
+    id: 'cat-egypt',
+    name: 'Mısır: Piramitlerin Sırrı',
+    description: 'Nil Nehri kıyısında yükselen devasa anıtlar ve firavunların gizemi.',
+    nodes: [
+      {
+        id: 'node-egypt-1',
+        title: 'Büyük Giza Piramidi',
+        historyQuestion: 'Keops Piramidi M.Ö. 2560 yılında tamamlanmıştır. Bu yılın rakamları toplamının 3 katı kaçtır?',
+        correctYear: 2560,
+        mathLogic: '(rakam_toplamı * 3)',
+        mathResult: 39,
+        locationHint: 'Antik Yakındoğu galerisindeki en büyük firavun büstünün tam karşısında.',
+        mapImageUrl: 'https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?q=80&w=1000&auto=format&fit=crop',
+        targetZone: { x: 50, y: 30, radius: 12 },
+        rewardKeyId: 'KEY-EGY-1',
+        status: QuestStatus.AVAILABLE,
+        order: 0
+      }
+    ]
+  },
+  {
+    id: 'cat-rome',
+    name: 'Roma: İmparatorluk Gücü',
+    description: 'Kolezyum’dan hukuk sistemine, batı medeniyetinin temelleri.',
+    nodes: [
+      {
+        id: 'node-rome-1',
+        title: 'Kolezyum’un Açılışı',
+        historyQuestion: 'Roma’nın simgesi Kolezyum (Flavian Amfitiyatrosu) M.S. kaç yılında açılmıştır?',
+        correctYear: 80,
+        mathLogic: '(rakam_toplamı + 12)',
+        mathResult: 20,
+        locationHint: 'Gladyatör miğferlerinin sergilendiği vitrinin sol köşesinde.',
+        mapImageUrl: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=1000&auto=format&fit=crop',
+        targetZone: { x: 40, y: 60, radius: 15 },
+        rewardKeyId: 'KEY-ROM-1',
+        status: QuestStatus.AVAILABLE,
+        order: 0
+      }
+    ]
+  },
+  {
+    id: 'cat-maya',
+    name: 'Maya: Gökyüzü Gözlemcileri',
+    description: 'Ormanların derinliklerinde kaybolan kadim şehirler ve takvimler.',
+    nodes: [
+      {
+        id: 'node-maya-1',
+        title: 'Kukulkan Piramidi',
+        historyQuestion: 'Maya şehri Chichen Itza’nın merkezindeki El Castillo piramidi yaklaşık M.S. 1000 yılında inşa edilmiştir. Bu yılın rakamları toplamı nedir?',
+        correctYear: 1000,
+        mathLogic: '(rakam_toplamı)',
+        mathResult: 1,
+        locationHint: 'Maya takvimi replikasının hemen arkasında, gizli bir bölmede.',
+        mapImageUrl: 'https://images.unsplash.com/photo-1518105779142-d975fb19a15f?q=80&w=1000&auto=format&fit=crop',
+        targetZone: { x: 65, y: 45, radius: 10 },
+        rewardKeyId: 'KEY-MAY-1',
+        status: QuestStatus.AVAILABLE,
+        order: 0
+      }
+    ]
   }
 ];
 
@@ -181,6 +244,54 @@ export const INITIAL_ERAS: Era[] = [
             id: 'sub-republic-founding',
             name: 'Kuruluş Dönemi',
             nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-republic-era')!.nodes
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'era-world-heritage',
+    name: 'DÜNYA MİRASI',
+    description: 'İnsanlık tarihine yön veren küresel medeniyetler ve mirasları.',
+    order: 2,
+    imageUrl: '',
+    topics: [
+      {
+        id: 'topic-egypt',
+        name: 'Mısır Medeniyeti',
+        description: 'Piramitler ve Nil\'in gizemi.',
+        order: 0,
+        subTopics: [
+          {
+            id: 'sub-egypt-pyramids',
+            name: 'Piramitler ve Yaşam',
+            nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-egypt')!.nodes
+          }
+        ]
+      },
+      {
+        id: 'topic-rome',
+        name: 'Roma İmparatorluğu',
+        description: 'Hukuk, mimari ve fetih.',
+        order: 1,
+        subTopics: [
+          {
+            id: 'sub-rome-colosseum',
+            name: 'Roma Mimarisi',
+            nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-rome')!.nodes
+          }
+        ]
+      },
+      {
+        id: 'topic-maya',
+        name: 'Maya Uygarlığı',
+        description: 'Astronomi ve kayıp şehirler.',
+        order: 2,
+        subTopics: [
+          {
+            id: 'sub-maya-astronomy',
+            name: 'Takvim ve Piramitler',
+            nodes: INITIAL_CATEGORIES.find(c => c.id === 'cat-maya')!.nodes
           }
         ]
       }
