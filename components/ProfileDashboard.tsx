@@ -70,7 +70,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
   };
 
   const handleSendInvite = async (targetUser: UserSummary) => {
-    await sendDuelInvite(user.id, user.username, targetUser.id);
+    await sendDuelInvite(user, targetUser.id);
     alert(`⚔️ ${targetUser.username} muhafızına düello daveti gönderildi!`);
   };
 
@@ -80,7 +80,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
     try {
       const targetUser = await getMuhafizByUsername(inviteUsername);
       if (targetUser) {
-        await sendDuelInvite(user.id, user.username, targetUser.id);
+        await sendDuelInvite(user, targetUser.id);
         alert(`⚔️ ${targetUser.username} muhafızına düello daveti gönderildi!`);
         setInviteUsername('');
       } else {
@@ -98,7 +98,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
     if (!newGuildName.trim()) return;
     setIsGuildLoading(true);
     try {
-      await createNewGuild(newGuildName, newGuildDesc, user.id);
+      await createNewGuild(user.id, user.username, newGuildName, newGuildDesc);
       alert("✅ Lonca başarıyla kuruldu!");
       setActiveModal('NONE');
       window.location.reload(); // Refresh to update user guild status

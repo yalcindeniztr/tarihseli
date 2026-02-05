@@ -1,5 +1,6 @@
 {
     "hosting": {
+        "site": "tarihoyun-2026",
         "public": "dist",
         "ignore": [
             "firebase.json",
