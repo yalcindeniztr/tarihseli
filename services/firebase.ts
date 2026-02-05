@@ -6,12 +6,12 @@ import { GameState, QuestStatus, RiddleNode, GameMode, TeamProgress, UserProfile
 // NOTE: Replace these with your actual Firebase project configuration
 // You can find these in your Firebase Console -> Project Settings
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY,
+  authDomain: (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: (import.meta as any).env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: (import.meta as any).env.VITE_FIREBASE_APP_ID
 };
 
 
@@ -38,6 +38,21 @@ export const syncCategoriesToCloud = async (categories: Category[]): Promise<boo
   } catch (e) {
     console.error("Firebase Sync Error:", e);
     return false;
+  }
+};
+
+export const fetchGameDataFromCloud = async (): Promise<Category[] | null> => {
+  if (!db) return null;
+  try {
+    const docRef = doc(db, "system", "gameData");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data().categories as Category[];
+    }
+    return null;
+  } catch (e) {
+    console.error("Fetch Game Data Error:", e);
+    return null;
   }
 };
 
@@ -76,7 +91,7 @@ export const loginWithGoogle = async (): Promise<boolean> => {
     const email = result.user.email;
 
     // Admin Email Restriction
-    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+    const adminEmail = (import.meta as any).env.VITE_ADMIN_EMAIL;
     if (email !== adminEmail) {
       await auth.signOut();
       alert("YALNIZCA YETKİLİ ADMİN GİRİŞ YAPABİLİR!");

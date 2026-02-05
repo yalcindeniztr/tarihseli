@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { INITIAL_CATEGORIES, INITIAL_ERAS } from './constants';
-import { syncUserProfileToCloud, listenForInvites, respondToInvite, createDuelSession, updateDuelScore, updateDuelMove, listenToDuelSession, finishDuelSession, fetchAllGuilds, fetchAllUsersFromCloud, updateGuildScore } from './services/firebase';
+import { syncUserProfileToCloud, listenForInvites, respondToInvite, createDuelSession, updateDuelScore, updateDuelMove, listenToDuelSession, finishDuelSession, fetchAllGuilds, fetchAllUsersFromCloud, updateGuildScore, fetchGameDataFromCloud } from './services/firebase';
 import { GameState, QuestStatus, RiddleNode, GameMode, TeamProgress, UserProfile, Invite, DuelSession, Category } from './types';
 import { loadGameState, saveGameState, clearDatabase } from './services/db';
 import MysteryBox from './components/MysteryBox';
@@ -37,6 +37,39 @@ const App: React.FC = () => {
 
   // Unified Navigation State
   const [view, setView] = useState<AppView>('LANDING');
+
+  // --- Auto-Logout Implementation ---
+  useEffect(() => {
+    // Only set timer if user is logged in or admin is authenticated
+    if (!gameState?.user && !isAdminAuthenticated) return;
+
+    const TIMEOUT_DURATION = 5 * 60 * 1000; // 5 Minutes
+    let logoutTimer: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(logoutTimer);
+      logoutTimer = setTimeout(() => {
+        // Perform Logout
+        setIsAdminAuthenticated(false);
+        setGameState(null);
+        setView('LANDING');
+        alert("🔒 Güvenlik sebebiyle 5 dakika hareketsiz kaldığınız için oturum kapatıldı.");
+      }, TIMEOUT_DURATION);
+    };
+
+    // Initial Start
+    resetTimer();
+
+    // Event Listeners
+    const events = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'];
+    events.forEach(event => window.addEventListener(event, resetTimer));
+
+    return () => {
+      clearTimeout(logoutTimer);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+    };
+  }, [gameState?.user, isAdminAuthenticated]);
+  // ----------------------------------
 
   // --- Admin Persistence ---
   useEffect(() => {
@@ -202,6 +235,7 @@ const App: React.FC = () => {
 
       const allGuilds = await fetchAllGuilds();
       const allUsers = await fetchAllUsersFromCloud();
+      const cloudGameData = await fetchGameDataFromCloud();
 
       setGameState(prev => {
         if (!prev) return prev;
@@ -209,6 +243,7 @@ const App: React.FC = () => {
           ...prev,
           availableGuilds: allGuilds,
           allUsers: allUsers,
+          categories: cloudGameData && cloudGameData.length > 0 ? cloudGameData : prev.categories
         };
       });
     };
