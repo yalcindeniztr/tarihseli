@@ -114,7 +114,7 @@ const App: React.FC = () => {
         const guilds = await fetchAllGuilds();
         setGameState(prev => prev ? { ...prev, availableGuilds: guilds } : {
           user: null,
-          mode: 'CLASSIC',
+          mode: 'SOLO',
           categories: INITIAL_CATEGORIES,
           eras: [], // Initial empty Eras
           activePeriodId: null,
@@ -126,7 +126,10 @@ const App: React.FC = () => {
           teams: [],
           availableGuilds: guilds,
           activeDuelId: null,
-          activeWager: 0
+          activeWager: 0,
+          setupComplete: false,
+          isArchiveOpen: false,
+          gameStarted: false
         });
       } catch (e) {
         console.error("Guild fetch error:", e);

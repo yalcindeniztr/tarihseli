@@ -91,11 +91,14 @@ export const TextArea: React.FC<TextAreaProps> = ({ label, className = '', ...pr
 };
 
 // --- CARDS ---
-export const Card: React.FC<{ children: ReactNode; className?: string; title?: string; subtitle?: string; actions?: ReactNode }> = ({
-    children, className = '', title, subtitle, actions
+export const Card: React.FC<{ children: ReactNode; className?: string; title?: string; subtitle?: string; actions?: ReactNode; onClick?: () => void }> = ({
+    children, className = '', title, subtitle, actions, onClick
 }) => {
     return (
-        <div className={`bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden ${className}`}>
+        <div
+            className={`bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden ${className}`}
+            onClick={onClick}
+        >
             {(title || actions) && (
                 <div className="px-6 py-4 border-b border-slate-50 flex justify-between items-center bg-white">
                     <div>
@@ -156,11 +159,12 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 };
 
 // --- BADGE ---
-export const Badge: React.FC<{ children: ReactNode; variant?: 'success' | 'warning' | 'info' | 'default' }> = ({ children, variant = 'default' }) => {
+export const Badge: React.FC<{ children: ReactNode; variant?: 'success' | 'warning' | 'info' | 'default' | 'danger' }> = ({ children, variant = 'default' }) => {
     const variants = {
         success: "bg-emerald-100 text-emerald-700",
         warning: "bg-amber-100 text-amber-700",
         info: "bg-blue-100 text-blue-700",
+        danger: "bg-red-100 text-red-700",
         default: "bg-slate-100 text-slate-600"
     };
     return (

@@ -133,6 +133,8 @@ export interface UserProfile {
   achievements: string[];
   pin?: string; // 6-char secure PIN
   lastActiveAt?: number;
+  isBanned?: boolean;
+  coins?: number;
 }
 
 export type GameMode = 'SOLO' | 'DUEL';

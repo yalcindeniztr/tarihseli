@@ -478,3 +478,37 @@ export const kickMember = async (guildId: string, memberId: string) => {
     throw e;
   }
 };
+
+
+export interface GlobalStats {
+  totalUsers: number;
+  totalGuilds: number;
+  totalDuels: number;
+  activeUsersLast24h: number; // Placeholder for now or calculated if poss
+}
+
+export const fetchGlobalStats = async (): Promise<GlobalStats> => {
+  if (!db) return { totalUsers: 0, totalGuilds: 0, totalDuels: 0, activeUsersLast24h: 0 };
+  try {
+    const userColl = collection(db, "users");
+    const guildColl = collection(db, "guilds");
+    const duelColl = collection(db, "duels");
+
+    const [userSnap, guildSnap, duelSnap] = await Promise.all([
+      getDocs(userColl), // For small user base, getDocs is fine. For large, use getCountFromServer
+      getDocs(query(guildColl)),
+      getDocs(query(duelColl))
+    ]);
+
+    // Simple calculation for MVP
+    return {
+      totalUsers: userSnap.size,
+      totalGuilds: guildSnap.size,
+      totalDuels: duelSnap.size,
+      activeUsersLast24h: 0 // Not tracked yet
+    };
+  } catch (e) {
+    console.error("Fetch Stats Error:", e);
+    return { totalUsers: 0, totalGuilds: 0, totalDuels: 0, activeUsersLast24h: 0 };
+  }
+};

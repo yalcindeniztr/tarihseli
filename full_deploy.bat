@@ -33,7 +33,7 @@ if %ERRORLEVEL% NEQ 0 (
 :: 3. Firebase'e Yukle
 echo.
 echo 🔥 3. Firebase Hosting'e Yukleniyor...
-call firebase deploy
+call firebase deploy --only hosting
 if %ERRORLEVEL% NEQ 0 (
     echo ❌ Firebase Deploy Hatasi!
     pause

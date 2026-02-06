@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GameState, RiddleNode, Category, UserProfile, Period } from '../types';
 import { INITIAL_CATEGORIES } from '../constants';
-import { syncCategoriesToCloud, fetchAllUsersFromCloud, deleteUserFromCloud, fetchSystemSettings, saveSystemSettings, deleteInactiveUsers } from '../services/firebase';
+import { syncCategoriesToCloud, fetchAllUsersFromCloud, deleteUserFromCloud, fetchSystemSettings, saveSystemSettings, deleteInactiveUsers, fetchGlobalStats, GlobalStats } from '../services/firebase';
 import { clearDatabase } from '../services/db';
 import NodeEditor from './Admin/NodeEditor';
+import UserInspector from './Admin/UserInspector';
 import { Button, Card, Modal, Badge, IconButton, Input, Switch } from './Admin/MaterialUI';
+import { syncUserProfileToCloud } from '../services/firebase';
 
 interface AdminPanelProps {
   gameState: GameState | null;
@@ -14,6 +16,7 @@ interface AdminPanelProps {
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClose }) => {
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'CONTENT' | 'USERS' | 'GUILDS' | 'SYSTEM'>('DASHBOARD');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Navigation State
   const [selectedCatId, setSelectedCatId] = useState<string>('');
@@ -39,13 +42,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
   const [isAddingNode, setIsAddingNode] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [selectedUserInspect, setSelectedUserInspect] = useState<UserProfile | null>(null);
+  const [contentSearch, setContentSearch] = useState('');
   const [deployProgress, setDeployProgress] = useState(0);
 
-  // System Settings State
   const [settings, setSettings] = useState({
     autoSync: false,
     maintenanceMode: false
   });
+
+  // Global Stats State
+  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'DASHBOARD') {
+      fetchGlobalStats().then(setGlobalStats);
+    }
+  }, [activeTab]);
 
   // Load Settings from Cloud on Mount
   useEffect(() => {
@@ -325,9 +338,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
 
   return (
     <div className="fixed inset-0 z-[300] bg-slate-100 flex flex-col md:flex-row overflow-hidden font-sans">
+
+      {/* Mobile Header */}
+      <div className="md:hidden bg-white p-4 border-b border-slate-200 flex justify-between items-center z-30 shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-lg">⚡</div>
+          <span className="font-bold text-slate-800">MASTER PANEL</span>
+        </div>
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-slate-100 rounded text-slate-600">
+          {isMobileMenuOpen ? '✖' : '☰'}
+        </button>
+      </div>
+
+      {/* Sidebar Overlay (Mobile) */}
+      {isMobileMenuOpen && (
+        <div className="absolute inset-0 z-40 bg-black/50 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-full md:w-72 bg-white border-r border-slate-200 flex flex-col z-20 shadow-xl">
-        <div className="p-6 flex flex-col items-center border-b border-slate-100 bg-slate-50/50">
+      <aside className={`absolute md:relative z-50 w-72 h-full bg-white border-r border-slate-200 flex flex-col shadow-2xl transition-transform duration-300 transform md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6 flex flex-col items-center border-b border-slate-100 bg-slate-50/50 hidden md:flex">
           <div className="w-16 h-16 bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center text-3xl mb-4 text-white">⚡</div>
           <h2 className="font-bold text-slate-800 tracking-tight text-lg">MASTER PANEL</h2>
           <span className="text-xs text-slate-500 font-medium uppercase tracking-wider mt-1 bg-slate-100 px-2 py-0.5 rounded">Pro Edition v3.1</span>
@@ -337,10 +367,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
             { id: 'DASHBOARD', icon: '📊', label: 'Dashboard' },
             { id: 'CONTENT', icon: 'folder', label: 'İçerik Yönetimi' },
             { id: 'USERS', icon: 'people', label: 'Kullanıcılar' },
+            { id: 'GUILDS', icon: 'shield', label: 'Loncalar' },
             { id: 'SYSTEM', icon: 'settings', label: 'Sistem Ayarları' }
           ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
-              <span className="material-icons-outlined text-lg">{tab.icon === 'folder' ? '📂' : tab.icon === 'people' ? '👥' : tab.icon === 'settings' ? '⚙️' : tab.icon}</span>
+            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
+              <span className="material-icons-outlined text-lg">{tab.icon === 'folder' ? '📂' : tab.icon === 'people' ? '👥' : tab.icon === 'settings' ? '⚙️' : tab.icon === 'shield' ? '🛡️' : tab.icon}</span>
               {tab.label}
             </button>
           ))}
@@ -362,25 +393,96 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
         )}
 
         {activeTab === 'DASHBOARD' && (
-          <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header><h1 className="text-3xl font-bold text-slate-800">Genel Durum</h1></header>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card title="Kategoriler" className="border-l-4 border-l-blue-500"><div className="text-3xl font-bold">{categories.length}</div></Card>
-              <Card title="Kullanıcılar" className="border-l-4 border-l-purple-500"><div className="text-3xl font-bold">{allUsers.length}</div></Card>
+          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header className="flex justify-between items-center border-b border-slate-200 pb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-800">Komuta Merkezi</h1>
+                <p className="text-slate-500 mt-1">Sistem durumunun gerçek zamanlı özeti.</p>
+              </div>
+              <div className="flex gap-2">
+                <Badge variant="success">Sistem Çevrimiçi</Badge>
+                <Badge variant={settings.autoSync ? 'info' : 'warning'}>Sync: {settings.autoSync ? 'ON' : 'OFF'}</Badge>
+              </div>
+            </header>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex justify-between items-start opacity-75 mb-4"><span className="text-sm font-bold uppercase tracking-wider">Toplam Kullanıcı</span><span className="material-icons-outlined">people</span></div>
+                <div className="text-4xl font-bold">{globalStats?.totalUsers || allUsers.length || '-'}</div>
+                <div className="text-xs mt-2 opacity-60">Aktif oyuncular dahil</div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex justify-between items-start opacity-75 mb-4"><span className="text-sm font-bold uppercase tracking-wider">İçerik Havuzu</span><span className="material-icons-outlined">library_books</span></div>
+                <div className="text-4xl font-bold">{categories.length}</div>
+                <div className="text-xs mt-2 opacity-60">{categories.reduce((acc, c) => acc + (c.periods?.length || 0), 0)} Dönem</div>
+              </div>
+
+              <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex justify-between items-start opacity-75 mb-4"><span className="text-sm font-bold uppercase tracking-wider">Loncalar</span><span className="material-icons-outlined">shield</span></div>
+                <div className="text-4xl font-bold">{globalStats?.totalGuilds || allGuilds.length || '-'}</div>
+                <div className="text-xs mt-2 opacity-60">Takım rekabeti</div>
+              </div>
+
+              <div className="bg-gradient-to-br from-amber-600 to-amber-800 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex justify-between items-start opacity-75 mb-4"><span className="text-sm font-bold uppercase tracking-wider">Toplam Düello</span><span className="material-icons-outlined">swords</span></div>
+                <div className="text-4xl font-bold">{globalStats?.totalDuels || '-'}</div>
+                <div className="text-xs mt-2 opacity-60">Rekabetçi maçlar</div>
+              </div>
+            </div>
+
+            {/* Quick Actions & Recent */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <Card title="Hızlı İşlemler" className="lg:col-span-1">
+                <div className="space-y-3">
+                  <Button fullWidth onClick={handlePushToCloud} startIcon="☁️">Verileri Zorla Eşitle</Button>
+                  <Button fullWidth variant="outline" onClick={() => setActiveTab('USERS')}>Kullanıcı Denetle</Button>
+                  <Button fullWidth variant="outline" onClick={() => setActiveTab('CONTENT')}>Soru Ekle/Düzenle</Button>
+                </div>
+              </Card>
+              <Card title="Sistem Sağlığı" className="lg:col-span-2">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                    <span className="font-bold text-slate-700">Veritabanı Bağlantısı</span>
+                    <span className="text-green-600 font-bold text-sm bg-green-100 px-2 py-1 rounded">MÜKEMMEL</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                    <span className="font-bold text-slate-700">Son Dağıtım (Deploy)</span>
+                    <span className="text-slate-500 text-sm">Az önce</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                    <span className="font-bold text-slate-700">Bakım Modu</span>
+                    <span className={`font-bold text-sm px-2 py-1 rounded ${settings.maintenanceMode ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-500'}`}>{settings.maintenanceMode ? 'AKTİF' : 'PASİF'}</span>
+                  </div>
+                </div>
+              </Card>
             </div>
           </div>
         )}
 
         {activeTab === 'CONTENT' && (
           <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-              <div>
+            <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100 gap-4">
+              <div className="flex-1">
                 <h1 className="text-2xl font-bold text-slate-800">İçerik Yönetimi</h1>
                 <p className="text-sm text-slate-500 mt-1 font-mono tracking-wide">{getBreadcrumbs()}</p>
               </div>
-              <div className="flex gap-2">
-                {selectedPeriodId && <Button size="sm" variant="ghost" onClick={() => setSelectedPeriodId('')}>← Dönemlere Dön</Button>}
-                {selectedCatId && !selectedPeriodId && <Button size="sm" variant="ghost" onClick={() => setSelectedCatId('')}>← Kategorilere Dön</Button>}
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Ara..."
+                    value={contentSearch}
+                    onChange={e => setContentSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {selectedPeriodId && <Button size="sm" variant="ghost" onClick={() => { setSelectedPeriodId(''); setContentSearch(''); }}>← Dönemlere Dön</Button>}
+                  {selectedCatId && !selectedPeriodId && <Button size="sm" variant="ghost" onClick={() => { setSelectedCatId(''); setContentSearch(''); }}>← Kategorilere Dön</Button>}
+                </div>
               </div>
             </div>
 
@@ -389,13 +491,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
               <>
                 <div className="flex justify-end"><Button onClick={handleAddCategory} startIcon="+">Yeni Kategori Ekle</Button></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {categories.map(cat => (
+                  {categories.filter(c => c.name.toLowerCase().includes(contentSearch.toLowerCase())).map(cat => (
                     <div key={cat.id} className="group relative bg-white p-6 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all">
                       <h3 className="font-bold text-lg text-slate-800 mb-2">{cat.name}</h3>
                       <p className="text-slate-500 text-xs mb-4 line-clamp-2">{cat.description}</p>
                       <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-50">
                         <span className="text-xs font-bold text-slate-400">{(cat.periods || []).length} Dönem</span>
-                        <Button size="sm" onClick={() => setSelectedCatId(cat.id)}>İncele →</Button>
+                        <Button size="sm" onClick={() => { setSelectedCatId(cat.id); setContentSearch(''); }}>İncele →</Button>
                       </div>
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                         <IconButton size="sm" onClick={() => handleUpdateCategory(cat.id)}>✏️</IconButton>
@@ -421,22 +523,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
 
                 {/* Periods List */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {(categories.find(c => c.id === selectedCatId)?.periods || []).map(period => (
-                    <div key={period.id} className="group bg-white p-5 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedPeriodId(period.id)}>
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xl">⏳</div>
-                        <div className="opacity-0 group-hover:opacity-100 flex gap-1" onClick={e => e.stopPropagation()}>
-                          <IconButton size="sm" onClick={() => {
-                            setSelectedPeriodId(period.id);
-                            setDialogState({ type: 'EDIT_PERIOD', title: 'Dönem Adı', inputValue: period.name });
-                          }}>✏️</IconButton>
-                          <IconButton size="sm" variant="danger" onClick={() => handleDeletePeriod(period.id)}>🗑️</IconButton>
+                  {(categories.find(c => c.id === selectedCatId)?.periods || [])
+                    .filter(p => p.name.toLowerCase().includes(contentSearch.toLowerCase()))
+                    .map(period => (
+                      <div key={period.id} className="group bg-white p-5 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer" onClick={() => { setSelectedPeriodId(period.id); setContentSearch(''); }}>
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xl">⏳</div>
+                          <div className="opacity-0 group-hover:opacity-100 flex gap-1" onClick={e => e.stopPropagation()}>
+                            <IconButton size="sm" onClick={() => {
+                              setSelectedPeriodId(period.id);
+                              setDialogState({ type: 'EDIT_PERIOD', title: 'Dönem Adı', inputValue: period.name });
+                            }}>✏️</IconButton>
+                            <IconButton size="sm" variant="danger" onClick={() => handleDeletePeriod(period.id)}>🗑️</IconButton>
+                          </div>
                         </div>
+                        <h4 className="font-bold text-slate-800 text-lg mb-1">{period.name}</h4>
+                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{period.nodes.length} Soru</span>
                       </div>
-                      <h4 className="font-bold text-slate-800 text-lg mb-1">{period.name}</h4>
-                      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{period.nodes.length} Soru</span>
-                    </div>
-                  ))}
+                    ))}
                   {(categories.find(c => c.id === selectedCatId)?.periods || []).length === 0 && (
                     <div className="col-span-full text-center py-10 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
                       Bu kategoride hiç dönem yok. Yukarıdan ekleyebilirsiniz.
@@ -460,32 +564,34 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
                 )}
 
                 <div className="space-y-3">
-                  {getActiveNodes().map((node, index) => (
-                    <div key={node.id}>
-                      {isEditingNode === node.id ? (
-                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                          <NodeEditor node={node} order={node.order} onSave={handleSaveNode} onCancel={() => setIsEditingNode(null)} />
-                        </div>
-                      ) : (
-                        <div className="group flex items-center justify-between p-4 bg-white border border-slate-100 rounded-lg hover:shadow-sm">
-                          <div className="flex items-center gap-4">
-                            <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs">{index + 1}</span>
-                            <div>
-                              <h4 className="font-bold text-slate-800">{node.title}</h4>
-                              <div className="flex gap-2 mt-1">
-                                <Badge variant="info">Tip: {node.questionType}</Badge>
-                                <Badge variant="warning">Yıl: {node.correctYear}</Badge>
+                  {getActiveNodes()
+                    .filter(n => n.title.toLowerCase().includes(contentSearch.toLowerCase()) || n.historyQuestion.includes(contentSearch))
+                    .map((node, index) => (
+                      <div key={node.id}>
+                        {isEditingNode === node.id ? (
+                          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                            <NodeEditor node={node} order={node.order} onSave={handleSaveNode} onCancel={() => setIsEditingNode(null)} />
+                          </div>
+                        ) : (
+                          <div className="group flex items-center justify-between p-4 bg-white border border-slate-100 rounded-lg hover:shadow-sm">
+                            <div className="flex items-center gap-4">
+                              <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs">{node.order + 1}</span>
+                              <div>
+                                <h4 className="font-bold text-slate-800">{node.title}</h4>
+                                <div className="flex gap-2 mt-1">
+                                  <Badge variant="info">Tip: {node.questionType}</Badge>
+                                  <Badge variant="warning">Yıl: {node.correctYear}</Badge>
+                                </div>
                               </div>
                             </div>
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100">
+                              <Button size="sm" variant="ghost" onClick={() => setIsEditingNode(node.id)}>Düzenle</Button>
+                              <IconButton size="sm" variant="danger" onClick={() => handleDeleteNode(node.id)}>🗑️</IconButton>
+                            </div>
                           </div>
-                          <div className="flex gap-2 opacity-0 group-hover:opacity-100">
-                            <Button size="sm" variant="ghost" onClick={() => setIsEditingNode(node.id)}>Düzenle</Button>
-                            <IconButton size="sm" variant="danger" onClick={() => handleDeleteNode(node.id)}>🗑️</IconButton>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        )}
+                      </div>
+                    ))}
                 </div>
               </Card>
             )}
@@ -496,16 +602,61 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
         {/* --- USERS & SYSTEM TABS (Unchanged mostly) --- */}
         {activeTab === 'USERS' && (
           <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in">
-            <div className="flex justify-between items-center"><h1 className="text-3xl font-bold text-slate-800">Kullanıcılar</h1><Button onClick={refreshUsers}>Yenile</Button></div>
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <h1 className="text-3xl font-bold text-slate-800">Kullanıcılar ({allUsers.length})</h1>
+              <div className="flex gap-2 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Kullanıcı ara..."
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={(e) => {
+                      const q = e.target.value.toLowerCase();
+                      // Simple client-side filter for now
+                      if (!q) refreshUsers();
+                      else setAllUsers(allUsers.filter(u => u.username.toLowerCase().includes(q) || u.id.includes(q)));
+                    }}
+                  />
+                </div>
+                <Button onClick={refreshUsers}>Yenile</Button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {allUsers.map(user => (
-                <Card key={user.id} className="relative group">
-                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100"><IconButton variant="danger" size="sm" onClick={() => deleteUserFromCloud(user.id).then(refreshUsers)}>🗑️</IconButton></div>
-                  <div className="text-center"><h3 className="font-bold">{user.username}</h3><p>Lvl {user.level}</p></div>
+                <Card key={user.id} className="relative group cursor-pointer hover:border-blue-400 hover:shadow-md transition-all" onClick={() => setSelectedUserInspect(user)}>
+                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100">
+                    <IconButton variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); deleteUserFromCloud(user.id).then(refreshUsers); }}>🗑️</IconButton>
+                  </div>
+                  <div className="text-center p-4">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl font-bold text-slate-600">
+                      {user.username.charAt(0).toUpperCase()}
+                    </div>
+                    <h3 className="font-bold text-lg text-slate-800">{user.username}</h3>
+                    <div className="flex justify-center gap-2 mt-2">
+                      <Badge variant="info">Lv {user.level}</Badge>
+                      {user.isBanned && <Badge variant="danger">BANLI</Badge>}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 font-mono truncate">{user.id}</p>
+                  </div>
                 </Card>
               ))}
             </div>
           </div>
+        )}
+
+        {/* User Inspector Modal */}
+        {selectedUserInspect && (
+          <UserInspector
+            isOpen={!!selectedUserInspect}
+            user={selectedUserInspect}
+            onClose={() => setSelectedUserInspect(null)}
+            onSave={async (updatedUser) => {
+              await syncUserProfileToCloud(updatedUser);
+              setAllUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+            }}
+          />
         )}
 
         {/* --- GUILDS TAB --- */}
@@ -518,7 +669,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-lg text-slate-800">{g.name}</h4>
-                      <Badge variant={g.privacy === 'CLOSED' ? 'danger' : 'success'}>{g.privacy === 'CLOSED' ? 'Gizli' : 'Açık'}</Badge>
+                      <Badge variant={g.privacy === 'CLOSED' ? 'warning' : 'success'}>{g.privacy === 'CLOSED' ? 'Gizli' : 'Açık'}</Badge>
                     </div>
                     <p className="text-sm text-slate-500 mb-4 line-clamp-2">{g.description}</p>
                     <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
