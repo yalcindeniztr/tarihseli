@@ -47,7 +47,7 @@ git add .
 git commit -m "Oto-Deploy: Versiyon Guncellemesi ve Duzeltmeler"
 git push origin main
 if %ERRORLEVEL% NEQ 0 (
-    echo ⚠️ Git Push uyarisi (belki degisiklik yoktu but devam ediliyor)...
+    echo ⚠️ Git Push uyarisi - belki degisiklik yoktu veya hata alindi...
 )
 
 :: 5. Android APK ve AAB Olustur

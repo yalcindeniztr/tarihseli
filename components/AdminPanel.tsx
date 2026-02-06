@@ -508,6 +508,59 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
           </div>
         )}
 
+        {/* --- GUILDS TAB --- */}
+        {activeTab === 'GUILDS' && (
+          <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in">
+            <div className="flex justify-between items-center"><h1 className="text-3xl font-bold text-slate-800">Loncalar ({allGuilds.length})</h1><Button onClick={fetchAdminGuilds}>Yenile</Button></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {allGuilds.map((g: any) => (
+                <div key={g.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-bold text-lg text-slate-800">{g.name}</h4>
+                      <Badge variant={g.privacy === 'CLOSED' ? 'danger' : 'success'}>{g.privacy === 'CLOSED' ? 'Gizli' : 'Açık'}</Badge>
+                    </div>
+                    <p className="text-sm text-slate-500 mb-4 line-clamp-2">{g.description}</p>
+                    <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                      <span className="bg-slate-100 px-2 py-1 rounded">👑 {g.leaderName}</span>
+                      <span className="bg-slate-100 px-2 py-1 rounded">👥 {g.members?.length || 0} Üye</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* --- SYSTEM TAB --- */}
+        {activeTab === 'SYSTEM' && (
+          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in">
+            <h1 className="text-3xl font-bold text-slate-800">Sistem Ayarları</h1>
+            <Card title="Genel Yapılandırma">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                  <div>
+                    <span className="font-bold text-slate-700 block">Otomatik Senkronizasyon</span>
+                    <span className="text-xs text-slate-400">Verileri otomatik olarak buluta yedekler.</span>
+                  </div>
+                  <Switch checked={settings.autoSync} onChange={c => handleSettingChange('autoSync', c)} />
+                </div>
+                <div className="flex justify-between items-center bg-red-50 p-4 rounded-lg border border-red-100">
+                  <div>
+                    <span className="font-bold text-red-800 block">🚨 BAKIM MODU</span>
+                    <span className="text-xs text-red-600/80">Siteyi erişime kapatır ve sadece yöneticiler girebilir.</span>
+                  </div>
+                  <Switch checked={settings.maintenanceMode} onChange={c => handleSettingChange('maintenanceMode', c)} />
+                </div>
+              </div>
+            </Card>
+            <div className="pt-8 border-t border-slate-200">
+              <h4 className="font-bold text-slate-400 text-xs mb-4 uppercase tracking-wider">TEHLİKELİ BÖLGE</h4>
+              <Button fullWidth variant="danger" onClick={handleResetSystem}>SİSTEM SIFIRLAMA (HER ŞEYİ SİL)</Button>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'GUILDS' && (
           <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in">
             <div className="flex justify-between items-center"><h1 className="text-3xl font-bold text-slate-800">Loncalar ({allGuilds.length})</h1><Button onClick={fetchAdminGuilds}>Yenile</Button></div>
