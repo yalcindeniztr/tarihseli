@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, Friend, Guild, Category } from '../types';
 import { Modal, Button, Input } from './Admin/MaterialUI';
-import { fetchAllUsersFromCloud, sendDuelInvite, getMuhafizByUsername, createNewGuild, joinGuild, leaveGuild, fetchAllGuilds } from '../services/firebase';
+import { fetchAllUsersFromCloud, sendDuelInvite, getMuhafizByUsername, createNewGuild, joinGuild, leaveGuild, fetchAllGuilds, updateGuildSettings, kickMember } from '../services/firebase';
 import GuildLeaderboard from './GuildLeaderboard';
 
 interface ProfileDashboardProps {
@@ -12,6 +12,7 @@ interface ProfileDashboardProps {
   onBack: () => void;
   onAdminAccess?: () => void;
   onUpdateUser: (updatedUser: UserProfile) => void;
+  onRefreshGuilds: () => void;
 }
 
 // Basic User Summary for Search Results
@@ -21,8 +22,8 @@ interface UserSummary {
   level: number;
 }
 
-const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, categories, onDeleteProfile, onBack, onAdminAccess, onUpdateUser }) => {
-  const [activeModal, setActiveModal] = useState<'NONE' | 'DELETE_CONFIRM' | 'JOIN_GUILD' | 'INVITE' | 'CREATE_GUILD' | 'FIND_GUILD' | 'INVENTORY' | 'KEY_DETAIL'>('NONE');
+const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, categories, onDeleteProfile, onBack, onAdminAccess, onUpdateUser, onRefreshGuilds }) => {
+  const [activeModal, setActiveModal] = useState<'NONE' | 'DELETE_CONFIRM' | 'JOIN_GUILD' | 'INVITE' | 'CREATE_GUILD' | 'FIND_GUILD' | 'INVENTORY' | 'KEY_DETAIL' | 'MANAGE_GUILD'>('NONE');
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
 
   // Search / Invite State
@@ -35,7 +36,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
   // Guild State
   const [isGuildLoading, setIsGuildLoading] = useState(false);
   const [newGuildName, setNewGuildName] = useState('');
-  const [newGuildDesc, setNewGuildDesc] = useState('');
+  const [newGuildDesc, setNewGuildDesc] = useState(''); // Shared for Create and Update
   const [availableGuilds, setAvailableGuilds] = useState<Guild[]>([]);
 
   // Load Guilds when modal opens
@@ -103,10 +104,10 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
       alert("✅ Lonca başarıyla kuruldu!");
       setActiveModal('NONE');
       // Update local user state immediately
-      onUpdateUser({ ...user, guildId: user.id }); // Guild ID is same as creator ID usually or returned. ideally fetch. 
-      // For now assume ID pattern or re-fetch user.
-      const updatedUser = await fetchAllUsersFromCloud().then(users => users.find(u => u.id === user.id));
-      if (updatedUser) onUpdateUser(updatedUser);
+      onUpdateUser({ ...user, guildId: user.id });
+
+      // Refresh Guilds to show up in App state
+      onRefreshGuilds();
 
     } catch (error) {
       console.error("Lonca kurma hatası:", error);
@@ -122,8 +123,11 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
       await joinGuild(guildId, user.id);
       alert("✅ Loncaya katıldın!");
       setActiveModal('NONE');
+
       // Update local state
       onUpdateUser({ ...user, guildId: guildId });
+      onRefreshGuilds();
+
     } catch (error) {
       console.error("Katılma hatası:", error);
       alert("Loncaya katılınamadı.");
@@ -142,6 +146,30 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
       onUpdateUser({ ...user, guildId: undefined });
     } catch (error) {
       console.error("Ayrılma hatası:", error);
+    }
+  };
+
+  const handleUpdateSettings = async (desc: string, rules: string, privacy: 'OPEN' | 'CLOSED') => {
+    if (!guild) return;
+    try {
+      await updateGuildSettings(guild.id, { description: desc, rules, privacy });
+      alert("✅ Lonca ayarları güncellendi!");
+      onRefreshGuilds();
+    } catch (e) {
+      console.error("Güncelleme hatası:", e);
+      alert("Hata oluştu.");
+    }
+  };
+
+  const handleKickMember = async (memberId: string) => {
+    if (!guild) return;
+    if (!confirm("Bu üyeyi atmak istediğine emin misin?")) return;
+    try {
+      await kickMember(guild.id, memberId);
+      alert("Üye atıldı.");
+      onRefreshGuilds();
+    } catch (e) {
+      console.error("Atma hatası:", e);
     }
   };
 
@@ -314,12 +342,19 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
                             <span className="text-xl font-black">{guild.members.length}</span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-xs font-bold text-[#8b7d6b]">KUDRET</span>
                             <span className="text-xl font-black text-amber-500">{guild.totalScore}</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-col gap-3">
+                        {user.id === guild.leaderId && (
+                          <button
+                            onClick={() => setActiveModal('MANAGE_GUILD')}
+                            className="px-6 py-3 bg-[#8b6508] text-white text-[10px] font-black tracking-[0.2em] uppercase rounded hover:bg-[#a0740a] transition-colors shadow-lg"
+                          >
+                            YÖNET
+                          </button>
+                        )}
                         {/* <button className="px-6 py-3 bg-[#8b6508] text-white text-[10px] font-black tracking-[0.2em] uppercase rounded hover:bg-[#a0740a] transition-colors shadow-lg">
                                 LİDER TABLOSU
                              </button> */}
@@ -535,6 +570,58 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
               </div>
             ))
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={activeModal === 'MANAGE_GUILD' && !!guild}
+        onClose={() => setActiveModal('NONE')}
+        title="LONCA YÖNETİMİ"
+        actions={<Button variant="ghost" onClick={() => setActiveModal('NONE')}>KAPAT</Button>}
+      >
+        <div className="space-y-6">
+          <div className="space-y-4 border-b border-stone-200 pb-4">
+            <h4 className="font-bold text-xs text-[#8b7d6b]">GENEL AYARLAR</h4>
+            <Input
+              label="AÇIKLAMA"
+              defaultValue={guild?.description}
+              onChange={(e) => setNewGuildDesc(e.target.value)}
+            />
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-[#8b7d6b]">KURALLAR</label>
+              <textarea
+                className="w-full p-2 text-xs border border-[#8b7d6b]/30 rounded bg-[#f0f0eb] focus:outline-none focus:border-[#8b6508]"
+                rows={3}
+                defaultValue={guild?.rules || "Saygı ve birlik..."}
+                id="guild-rules-input"
+              />
+            </div>
+            <Button onClick={() => {
+              const rules = (document.getElementById('guild-rules-input') as HTMLTextAreaElement).value;
+              handleUpdateSettings(newGuildDesc || guild!.description, rules, 'OPEN');
+            }}>
+              AYARLARI KAYDET
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="font-bold text-xs text-[#8b7d6b]">ÜYE YÖNETİMİ ({guild?.members.length})</h4>
+            <div className="max-h-40 overflow-y-auto space-y-2 bg-slate-50 p-2 rounded border border-slate-100">
+              {guild?.members.map(memberId => (
+                <div key={memberId} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
+                  <span className="text-xs font-bold text-stone-700">{memberId}</span>
+                  {memberId !== user.id && (
+                    <button
+                      onClick={() => handleKickMember(memberId)}
+                      className="text-[9px] text-red-500 font-bold hover:underline"
+                    >
+                      AT
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </Modal>
 

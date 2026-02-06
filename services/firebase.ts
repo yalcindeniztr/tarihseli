@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, addDoc, updateDoc, onSnapshot, query, where, arrayUnion, increment } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, addDoc, updateDoc, onSnapshot, query, where, arrayUnion, increment, arrayRemove, deleteField } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { GameState, QuestStatus, RiddleNode, GameMode, TeamProgress, UserProfile, Invite, DuelSession, Guild, Category } from '../types';
 
@@ -332,7 +332,9 @@ export const createNewGuild = async (userId: string, username: string, name: str
       members: [userId],
       totalScore: 0,
       createdAt: Date.now(),
-      description
+      description,
+      rules: "Saygı ve birlik her şeyden önce gelir.",
+      privacy: 'OPEN'
     };
 
     const docRef = await addDoc(collection(db, "guilds"), guildData);
@@ -445,5 +447,34 @@ export const updateGuildScore = async (guildId: string, points: number) => {
     });
   } catch (e) {
     console.error("Update Guild Score Error:", e);
+  }
+};
+
+export const updateGuildSettings = async (guildId: string, settings: { description?: string, rules?: string, privacy?: 'OPEN' | 'CLOSED' }) => {
+  if (!db) return;
+  try {
+    const guildRef = doc(db, "guilds", guildId);
+    await updateDoc(guildRef, settings);
+  } catch (e) {
+    console.error("Update Guild Settings Error:", e);
+    throw e;
+  }
+};
+
+export const kickMember = async (guildId: string, memberId: string) => {
+  if (!db) return;
+  try {
+    const guildRef = doc(db, "guilds", guildId);
+    await updateDoc(guildRef, {
+      members: arrayRemove(memberId)
+    });
+
+    const userRef = doc(db, "users", memberId);
+    await updateDoc(userRef, {
+      guildId: deleteField()
+    });
+  } catch (e) {
+    console.error("Kick Member Error:", e);
+    throw e;
   }
 };

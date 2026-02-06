@@ -18,7 +18,7 @@ import UserLogin from './components/UserLogin';
 import KeyUnlockSequence from './components/KeyUnlockSequence';
 import useSecurity from './components/SecurityManager';
 
-import TermsModal from './components/TermsModal';
+
 
 type AppView = 'LANDING' | 'CREATE_PROFILE' | 'AUTH' | 'PROFILE' | 'ARCHIVE' | 'GAME' | 'ADMIN_LOGIN' | 'ADMIN_PANEL';
 
@@ -141,6 +141,16 @@ const App: React.FC = () => {
     await respondToInvite(invite.id, 'REJECTED');
     setInvites((prev: Invite[]) => prev.filter((i: Invite) => i.id !== invite.id));
   };
+
+  // Refresh Guilds Helper
+  const refreshGuilds = useCallback(async () => {
+    try {
+      const guilds = await fetchAllGuilds();
+      setGameState(prev => prev ? { ...prev, availableGuilds: guilds } : null);
+    } catch (error) {
+      console.error("Failed to refresh guilds:", error);
+    }
+  }, []);
 
   // Real-time Duel Sync
   useEffect(() => {
@@ -563,6 +573,7 @@ const App: React.FC = () => {
         onBack={() => setView('LANDING')}
         onAdminAccess={() => { }}
         onUpdateUser={(updatedUser) => setGameState(gameState ? { ...gameState, user: updatedUser } : null)}
+        onRefreshGuilds={refreshGuilds}
       />
     );
   }

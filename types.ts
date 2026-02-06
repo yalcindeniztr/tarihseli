@@ -118,6 +118,8 @@ export interface Guild {
   totalScore: number;
   createdAt: number;
   description: string;
+  rules?: string;
+  privacy?: 'OPEN' | 'CLOSED';
 }
 
 export interface UserProfile {
