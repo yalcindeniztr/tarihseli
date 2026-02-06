@@ -89,9 +89,41 @@ const App: React.FC = () => {
   // ----------------------------------
 
   // --- Admin Persistence ---
-  // REMOVED: Insecure auto-login logic removed. 
-  // Admin must always login via PIN for security (Master Pro standard).
-  // --------------------------
+  useEffect(() => {
+    const adminAuth = sessionStorage.getItem('admin_auth');
+    if (adminAuth === 'true') {
+      setIsAdminAuthenticated(true);
+      // Determine view based on URL or default to ADMIN_PANEL if previously there
+      // For now, if admin auth exists, we assume they want back in, but maybe check URL?
+      // Simpler: Just set authenticated, let them click "Admin" or if they were in panel...
+      // The user specially asked: "yenilime yapınca da hangi sayfadaysak orada kalsın"
+      const lastView = sessionStorage.getItem('last_view') as AppView;
+      if (lastView) setView(lastView);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view) sessionStorage.setItem('last_view', view);
+  }, [view]);
+
+  // Initial Data Load (Guilds & Categories)
+  useEffect(() => {
+    const initData = async () => {
+      // Load Guilds
+      try {
+        const guilds = await fetchAllGuilds();
+        setGameState(prev => prev ? { ...prev, availableGuilds: guilds } : {
+          user: null, mode: 'CLASSIC', categories: INITIAL_CATEGORIES,
+          activePeriodId: null, activeTeamIndex: 0, teams: [],
+          availableGuilds: guilds, activeDuelId: null, activeWager: 0
+        });
+      } catch (e) {
+        console.error("Guild fetch error:", e);
+      }
+    };
+    initData();
+  }, []); // Run once on mount
+
 
   // Listen for Invites
   useEffect(() => {

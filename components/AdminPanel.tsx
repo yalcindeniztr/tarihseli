@@ -13,11 +13,26 @@ interface AdminPanelProps {
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'CONTENT' | 'USERS' | 'SYSTEM'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'CONTENT' | 'USERS' | 'GUILDS' | 'SYSTEM'>('DASHBOARD');
 
   // Navigation State
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
+
+  // Guild Admin State
+  const [allGuilds, setAllGuilds] = useState<any[]>([]);
+  const fetchAdminGuilds = async () => {
+    // We need to import fetchAllGuilds from firebase.ts
+    // Assuming it is accessible or passed. 
+    // Since fetchAllUsersFromCloud is imported, fetchAllGuilds should be too.
+    const { fetchAllGuilds } = await import('../services/firebase');
+    const guilds = await fetchAllGuilds();
+    setAllGuilds(guilds);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'GUILDS') fetchAdminGuilds();
+  }, [activeTab]);
 
   // Interaction State
   const [isEditingNode, setIsEditingNode] = useState<string | null>(null);
@@ -493,11 +508,29 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ gameState, setGameState, onClos
           </div>
         )}
 
+        {activeTab === 'GUILDS' && (
+          <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in">
+            <div className="flex justify-between items-center"><h1 className="text-3xl font-bold text-slate-800">Loncalar ({allGuilds.length})</h1><Button onClick={fetchAdminGuilds}>Yenile</Button></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {allGuilds.map((g: any) => (
+                <div key={g.id} className="bg-white p-4 rounded border border-slate-200 flex justify-between items-center">
+                  <div>
+                    <h4 className="font-bold text-slate-700">{g.name}</h4>
+                    <p className="text-xs text-slate-500">{g.members?.length || 0} Üye | Lider: {g.leaderName}</p>
+                  </div>
+                  {/* Add delete button if needed later */}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'SYSTEM' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <h1 className="text-3xl font-bold">Sistem</h1>
             <Card title="Ayarlar">
-              <div className="flex justify-between mb-4"><span>Oto-Sync</span><Switch checked={settings.autoSync} onChange={c => handleSettingChange('autoSync', c)} /></div>
+              <div className="flex justify-between mb-4 border-b pb-2"><span>Oto-Sync</span><Switch checked={settings.autoSync} onChange={c => handleSettingChange('autoSync', c)} /></div>
+              <div className="flex justify-between mb-4 text-red-800 bg-red-50 p-2 rounded"><span> BAKIM MODU (Siteyi Kapatır)</span><Switch checked={settings.maintenanceMode} onChange={c => handleSettingChange('maintenanceMode', c)} /></div>
             </Card>
             <Button variant="danger" onClick={handleResetSystem}>Sıfırla</Button>
           </div>
