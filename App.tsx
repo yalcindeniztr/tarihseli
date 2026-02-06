@@ -16,18 +16,19 @@ import ProfileDashboard from './components/ProfileDashboard';
 import InviteManager from './components/Duel/InviteManager';
 import UserLogin from './components/UserLogin';
 import KeyUnlockSequence from './components/KeyUnlockSequence';
+import useSecurity from './components/SecurityManager';
 
 import TermsModal from './components/TermsModal';
 
 type AppView = 'LANDING' | 'CREATE_PROFILE' | 'AUTH' | 'PROFILE' | 'ARCHIVE' | 'GAME' | 'ADMIN_LOGIN' | 'ADMIN_PANEL';
 
 const App: React.FC = () => {
+  useSecurity(); // Activate Security
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedNode, setSelectedNode] = useState<RiddleNode | null>(null);
   const [isARActive, setIsARActive] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [showTerms, setShowTerms] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [duelSession, setDuelSession] = useState<DuelSession | null>(null);
 
@@ -37,6 +38,21 @@ const App: React.FC = () => {
 
   // Unified Navigation State
   const [view, setView] = useState<AppView>('LANDING');
+
+  // Animation & Transition State
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
+
+  // Auto-scroll to highlighted node
+  useEffect(() => {
+    if (highlightedNodeId) {
+      setTimeout(() => {
+        const element = document.getElementById(`node-${highlightedNodeId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500); // Delay slightly to allow rendering
+    }
+  }, [highlightedNodeId, view, gameState?.activePeriodId]);
 
   // --- Auto-Logout Implementation ---
   useEffect(() => {
@@ -76,14 +92,6 @@ const App: React.FC = () => {
   // REMOVED: Insecure auto-login logic removed. 
   // Admin must always login via PIN for security (Master Pro standard).
   // --------------------------
-
-  // Check Terms Acceptance on Mount
-  useEffect(() => {
-    const accepted = localStorage.getItem('TERMS_ACCEPTED_V1');
-    if (!accepted) {
-      setShowTerms(true);
-    }
-  }, []);
 
   // Listen for Invites
   useEffect(() => {
@@ -247,11 +255,6 @@ const App: React.FC = () => {
       syncGlobalData();
     }
   }, [gameState?.user?.id, gameState?.user?.guildId]);
-
-  const handleTermsAccept = () => {
-    localStorage.setItem('TERMS_ACCEPTED_V1', 'true');
-    setShowTerms(false);
-  };
 
   // Başlangıç: Veritabanından yükle
   useEffect(() => {
@@ -455,16 +458,46 @@ const App: React.FC = () => {
       }
 
       const updatedCategories = [...prev.categories];
-      const updatedNodes = [...category.nodes];
-      updatedNodes[nodeIndex].status = QuestStatus.COMPLETED;
 
-      const nextIdx = updatedNodes.findIndex((n, i) => i > nodeIndex && n.status === QuestStatus.LOCKED);
-      if (nextIdx > -1) {
-        updatedNodes[nextIdx].status = QuestStatus.AVAILABLE;
-        // Optionally auto-select the next node logic could go here if we wanted to pop it up immediately
+      // --- FIX: Progression Logic for Periods ---
+      // Determine if we are updating a Period's nodes or Category's nodes
+      const activePeriodId = prev.activePeriodId;
+      if (activePeriodId) {
+        // We are in a Period
+        const periodIdx = category.periods.findIndex(p => p.id === activePeriodId);
+        if (periodIdx > -1) {
+          const updatedPeriods = [...category.periods];
+          const period = updatedPeriods[periodIdx];
+          const periodNodes = [...period.nodes];
+
+          const pNodeIndex = periodNodes.findIndex(n => n.id === rewardNode.id);
+          if (pNodeIndex > -1) {
+            periodNodes[pNodeIndex].status = QuestStatus.COMPLETED;
+
+            // Unlock next node in Period
+            const nextPIdx = periodNodes.findIndex((n, i) => i > pNodeIndex && n.status === QuestStatus.LOCKED);
+            if (nextPIdx > -1) {
+              periodNodes[nextPIdx].status = QuestStatus.AVAILABLE;
+              setHighlightedNodeId(periodNodes[nextPIdx].id);
+            }
+
+            updatedPeriods[periodIdx] = { ...period, nodes: periodNodes };
+            updatedCategories[categoryIdx] = { ...category, periods: updatedPeriods };
+          }
+        }
+      } else {
+        // We are in a flat Category (no periods)
+        // Original logic...
+        const updatedNodes = [...category.nodes];
+        updatedNodes[nodeIndex].status = QuestStatus.COMPLETED;
+
+        const nextIdx = updatedNodes.findIndex((n, i) => i > nodeIndex && n.status === QuestStatus.LOCKED);
+        if (nextIdx > -1) {
+          updatedNodes[nextIdx].status = QuestStatus.AVAILABLE;
+          setHighlightedNodeId(updatedNodes[nextIdx].id);
+        }
+        updatedCategories[categoryIdx] = { ...category, nodes: updatedNodes };
       }
-
-      updatedCategories[categoryIdx] = { ...category, nodes: updatedNodes };
       const nextTeamIdx = prev.mode === 'DUEL' ? (teamIdx + 1) % prev.teams.length : teamIdx;
 
       // Sync to Cloud if Duel
@@ -528,7 +561,8 @@ const App: React.FC = () => {
         categories={gameState.categories} // Pass categories for key lookup
         onDeleteProfile={() => { clearDatabase(); window.location.reload(); }}
         onBack={() => setView('LANDING')}
-        onAdminAccess={() => { }} // Disabled quick access from here to keep UI clean, or re-enable if needed
+        onAdminAccess={() => { }}
+        onUpdateUser={(updatedUser) => setGameState(gameState ? { ...gameState, user: updatedUser } : null)}
       />
     );
   }
@@ -612,7 +646,9 @@ const App: React.FC = () => {
               />
               <div className="grid grid-cols-2 gap-x-12 gap-y-24 my-12 justify-items-center">
                 {nodesToRender.map(node => (
-                  <VisualBox key={node.id} node={node} isActive={selectedNode?.id === node.id} onClick={setSelectedNode} />
+                  <div key={node.id} id={`node-${node.id}`} className="contents">
+                    <VisualBox node={node} isActive={selectedNode?.id === node.id} onClick={setSelectedNode} />
+                  </div>
                 ))}
                 {nodesToRender.length === 0 && (
                   <div className="col-span-2 py-20 text-center font-serif-vintage italic text-stone-400">
@@ -660,9 +696,57 @@ const App: React.FC = () => {
   }
 
   // 5. LANDING / AUTH / CREATE PROFILE
+  const handleAdminReturn = () => {
+    // If we're already logged in as a legitimate user, just go to landing
+    if (gameState?.user) {
+      setView('LANDING');
+      return;
+    }
+
+    // Otherwise, create a temporary "Supervisor" Admin User for testing/playing
+    const adminUser: UserProfile = {
+      id: 'admin-supervisor',
+      username: 'MÜZE MÜDÜRÜ',
+      level: 100,
+      xp: 999999,
+      unlockedKeys: [],
+      friends: [],
+      guildId: 'admin-guild',
+      achievements: ['YONETICI_GUCU'],
+      pin: '000000'
+    };
+
+    const teams: TeamProgress[] = [{
+      name: adminUser.username, currentStage: 0, unlockedKeys: [], score: 999999
+    }];
+
+    setGameState({
+      user: adminUser,
+      categories: gameState?.categories || INITIAL_CATEGORIES,
+      eras: gameState?.eras || INITIAL_ERAS,
+      activeCategoryId: null,
+      activePeriodId: null,
+      activeEraId: null,
+      activeTopicId: null,
+      activeSubTopicId: null,
+      activeDuelId: null,
+      activeWager: null,
+      mode: 'SOLO',
+      teams: teams,
+      activeTeamIndex: 0,
+      setupComplete: true,
+      gameStarted: false,
+      isArchiveOpen: false,
+      availableGuilds: []
+    });
+
+    // User requested "not profile page", so we send them to Landing logged in state 
+    // or Archive if they prefer. Landing is safer as it shows the dashboard.
+    setView('LANDING');
+  };
+
   return (
     <div className="min-h-screen flex flex-col relative overflow-x-hidden bg-[#dcdcd7]">
-      <TermsModal isOpen={showTerms} onAccept={handleTermsAccept} />
       <InviteManager invites={invites} onAccept={handleAcceptInvite} onReject={handleRejectInvite} />
 
       <div className="flex-grow flex flex-col p-6 max-w-screen-sm mx-auto w-full relative z-10">
@@ -782,7 +866,7 @@ const App: React.FC = () => {
             <AdminPanel
               gameState={gameState}
               setGameState={setGameState}
-              onClose={() => setView('LANDING')}
+              onClose={handleAdminReturn}
             />
           ) : null}
         </div>

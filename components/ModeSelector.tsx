@@ -10,6 +10,7 @@ interface ModeSelectorProps {
 const ModeSelector: React.FC<ModeSelectorProps> = ({ onComplete, onBack }) => {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleFinish = () => {
     if (name.trim() && pin.length >= 6) {
@@ -58,13 +59,27 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({ onComplete, onBack }) => {
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl opacity-20">🔒</span>
                 <p className="text-[9px] text-[#8b6508]/80 text-right mt-1 font-bold">EN AZ 6 KARAKTER (HARF/RAKAM)</p>
               </div>
+
+              {/* Terms of Service Checkbox */}
+              <div className="flex items-center gap-3 pt-2">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={acceptedTerms}
+                  onChange={e => setAcceptedTerms(e.target.checked)}
+                  className="w-5 h-5 accent-[#8b6508] cursor-pointer"
+                />
+                <label htmlFor="terms" className="text-[10px] font-bold text-[#2c1e11] uppercase tracking-wider cursor-pointer select-none">
+                  <span className="underline hover:text-[#8b6508]" onClick={(e) => { e.preventDefault(); setAcceptedTerms(!acceptedTerms); }}>KULLANIM ŞARTLARINI</span> OKUDUM, ANLADIM VE ONAYLIYORUM.
+                </label>
+              </div>
             </div>
 
             <div className="pt-4 space-y-4">
               <button
                 onClick={handleFinish}
-                className={`w-full py-5 bg-[#2c1e11] text-stone-100 font-display text-sm tracking-[0.3em] font-black shadow-2xl hover:bg-black transition-all hover:scale-105 active:scale-95 ${(!name.trim() || pin.length < 6) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={!name.trim() || pin.length < 6}
+                className={`w-full py-5 bg-[#2c1e11] text-stone-100 font-display text-sm tracking-[0.3em] font-black shadow-2xl hover:bg-black transition-all hover:scale-105 active:scale-95 ${(!name.trim() || pin.length < 6 || !acceptedTerms) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!name.trim() || pin.length < 6 || !acceptedTerms}
               >
                 MÜHRÜ BAS VE BAŞLAT
               </button>

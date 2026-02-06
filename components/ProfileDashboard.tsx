@@ -11,6 +11,7 @@ interface ProfileDashboardProps {
   onDeleteProfile: () => void;
   onBack: () => void;
   onAdminAccess?: () => void;
+  onUpdateUser: (updatedUser: UserProfile) => void;
 }
 
 // Basic User Summary for Search Results
@@ -20,7 +21,7 @@ interface UserSummary {
   level: number;
 }
 
-const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, categories, onDeleteProfile, onBack, onAdminAccess }) => {
+const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, categories, onDeleteProfile, onBack, onAdminAccess, onUpdateUser }) => {
   const [activeModal, setActiveModal] = useState<'NONE' | 'DELETE_CONFIRM' | 'JOIN_GUILD' | 'INVITE' | 'CREATE_GUILD' | 'FIND_GUILD' | 'INVENTORY' | 'KEY_DETAIL'>('NONE');
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
 
@@ -101,7 +102,12 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
       await createNewGuild(user.id, user.username, newGuildName, newGuildDesc);
       alert("✅ Lonca başarıyla kuruldu!");
       setActiveModal('NONE');
-      window.location.reload(); // Refresh to update user guild status
+      // Update local user state immediately
+      onUpdateUser({ ...user, guildId: user.id }); // Guild ID is same as creator ID usually or returned. ideally fetch. 
+      // For now assume ID pattern or re-fetch user.
+      const updatedUser = await fetchAllUsersFromCloud().then(users => users.find(u => u.id === user.id));
+      if (updatedUser) onUpdateUser(updatedUser);
+
     } catch (error) {
       console.error("Lonca kurma hatası:", error);
       alert("Lonca kurulamadı.");
@@ -116,7 +122,8 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
       await joinGuild(guildId, user.id);
       alert("✅ Loncaya katıldın!");
       setActiveModal('NONE');
-      window.location.reload();
+      // Update local state
+      onUpdateUser({ ...user, guildId: guildId });
     } catch (error) {
       console.error("Katılma hatası:", error);
       alert("Loncaya katılınamadı.");
@@ -132,7 +139,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
     try {
       await leaveGuild(user.guildId, user.id);
       alert("Loncadan ayrıldın.");
-      window.location.reload();
+      onUpdateUser({ ...user, guildId: undefined });
     } catch (error) {
       console.error("Ayrılma hatası:", error);
     }
@@ -151,134 +158,229 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ user, guild, catego
     return "Bilinmeyen Kaynak";
   };
 
+  // Helper for Profile Titles
+  const getTitleForLevel = (lvl: number) => {
+    if (lvl >= 50) return "ZAMANIN EFENDİSİ";
+    if (lvl >= 30) return "BÜYÜK ÜSTAT";
+    if (lvl >= 20) return "TARİH KORUYUCUSU";
+    if (lvl >= 10) return "KAYIP ZAMAN YOLCUSU";
+    if (lvl >= 5) return "TECRÜBELİ MUHAFIZ";
+    return "ACEMİ MUHAFIZ";
+  };
+
   return (
     <>
-      <div className="fixed inset-0 z-[150] bg-[#dcdcd7]/98 overflow-y-auto animate-in fade-in duration-300">
-        <div className="max-w-4xl mx-auto p-6 md:p-12 relative">
-          <button
-            onClick={onBack}
-            className="absolute top-6 left-6 text-[#8b7d6b] font-display text-xs tracking-widest hover:text-black uppercase font-black"
-          >
-            ← GERİ DÖN
-          </button>
+      <div className="fixed inset-0 z-[150] bg-[#e6e6e1] overflow-y-auto animate-in fade-in duration-500 font-sans">
+        <div className="max-w-6xl mx-auto p-4 md:p-8 relative">
 
-          {/* Admin Access Hidden Trigger */}
-          <div className="absolute top-6 right-6 w-8 h-8 cursor-pointer opacity-10 hover:opacity-100 transition-opacity" onClick={onAdminAccess}>
-            <span className="text-2xl">⚡</span>
+          {/* Top Navigation Bar */}
+          <div className="flex justify-between items-center mb-12 sticky top-0 bg-[#e6e6e1]/90 backdrop-blur-sm z-50 py-4 border-b border-[#8b7d6b]/10">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-[#5a4d3b] hover:text-[#2c1e11] transition-colors group"
+            >
+              <span className="text-xl group-hover:-translate-x-1 transition-transform">←</span>
+              <span className="font-display text-[11px] tracking-[0.2em] font-black uppercase">KARARGAHA DÖN</span>
+            </button>
+
+            {/* Admin Trigger (Subtle) */}
+            <div
+              className="w-6 h-6 rounded-full border border-[#8b7d6b]/20 hover:bg-[#8b7d6b] hover:border-transparent cursor-pointer transition-all duration-300 group flex items-center justify-center"
+              onClick={onAdminAccess}
+            >
+              <span className="text-[10px] text-[#8b7d6b] group-hover:text-white opacity-50 group-hover:opacity-100">⚡</span>
+            </div>
           </div>
 
-          <header className="text-center mb-16 pt-8">
-            <div className="w-24 h-24 bg-[#8b7d6b] rounded-full mx-auto mb-6 flex items-center justify-center shadow-xl border-4 border-[#dcdcd7] outline outline-1 outline-[#8b7d6b]">
-              <span className="text-4xl text-[#dcdcd7]">💂</span>
-            </div>
-            <h2 className="text-3xl font-display text-stone-800 tracking-[0.2em] font-black uppercase mb-2">{user.username}</h2>
-            <div className="flex justify-center gap-4 text-[10px] tracking-[0.2em] font-black uppercase text-[#8b7d6b]">
-              <span>SEVİYE {user.level}</span>
-              <span>•</span>
-              <span>{user.xp} XP / {user.level * 1000}</span>
+          {/* MASTER PRO HEADER */}
+          <header className="relative mb-20">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#8b7d6b]/30 to-transparent"></div>
+
+            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 py-10">
+              {/* Avatar Section */}
+              <div className="relative group">
+                <div className="absolute inset-0 bg-[#8b7d6b] rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                <div className="w-32 h-32 md:w-40 md:h-40 bg-gradient-to-br from-[#2c1e11] to-[#3e342b] rounded-full flex items-center justify-center shadow-2xl border-4 border-[#dcdcd7] relative z-10 overflow-hidden ring-4 ring-[#8b7d6b]/10">
+                  {user.username === 'Müze Müdürü' ? (
+                    <span className="text-6xl filter drop-shadow-lg">🏛️</span>
+                  ) : (
+                    <span className="text-6xl filter drop-shadow-lg">💂</span>
+                  )}
+                </div>
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#8b7d6b] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg z-20 whitespace-nowrap">
+                  Seviye {user.level}
+                </div>
+              </div>
+
+              {/* User Info Section */}
+              <div className="text-center md:text-left flex-grow">
+                <h4 className="text-[#8b7d6b] font-display text-xs tracking-[0.4em] font-black uppercase mb-2 opacity-80">{getTitleForLevel(user.level)}</h4>
+                <h1 className="text-4xl md:text-6xl font-display text-[#2c1e11] font-black uppercase tracking-tighter mb-4 drop-shadow-sm">{user.username}</h1>
+
+                {/* XP Progress Bar */}
+                <div className="max-w-md mx-auto md:mx-0">
+                  <div className="flex justify-between text-[10px] font-bold text-[#8b6508] mb-1 uppercase tracking-widest">
+                    <span>TECRÜBE (XP)</span>
+                    <span>{user.xp} / {user.level * 1000}</span>
+                  </div>
+                  <div className="h-3 w-full bg-[#dcdcd7] rounded-full overflow-hidden shadow-inner border border-[#8b7d6b]/10">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#8b6508] to-[#b8860b] shadow-[0_0_10px_#b8860b]"
+                      style={{ width: `${Math.min((user.xp / (user.level * 1000)) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="flex gap-6 md:gap-10 border-t md:border-t-0 md:border-l border-[#8b7d6b]/20 pt-6 md:pt-0 md:pl-10">
+                <div className="text-center group cursor-pointer" onClick={() => setActiveModal('INVENTORY')}>
+                  <div className="text-3xl md:text-4xl font-black text-[#2c1e11] group-hover:text-[#8b6508] transition-colors mb-1">{user.unlockedKeys.length}</div>
+                  <div className="text-[9px] text-[#8b7d6b] font-bold uppercase tracking-[0.2em]">MÜHÜRLER</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl md:text-4xl font-black text-[#2c1e11] mb-1">{user.friends.length}</div>
+                  <div className="text-[9px] text-[#8b7d6b] font-bold uppercase tracking-[0.2em]">DOSTLAR</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl md:text-4xl font-black text-[#2c1e11] mb-1">{user.achievements.length}</div>
+                  <div className="text-[9px] text-[#8b7d6b] font-bold uppercase tracking-[0.2em]">BAŞARIM</div>
+                </div>
+              </div>
             </div>
           </header>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
-            {/* Sol Kolon: İstatistikler */}
-            <div className="space-y-8">
-              <div className="bg-white/60 p-8 rounded-sm border border-[#8b7d6b]/20 shadow-sm relative overflow-hidden group hover:border-[#8b7d6b]/40 transition-colors">
-                <div className="absolute top-0 right-0 w-16 h-16 bg-[#8b7d6b]/10 -mr-8 -mt-8 rounded-full"></div>
-                <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">KİŞİSEL KAYITLAR</h3>
+            {/* LEFT COLUMN: Personal (Inventory & Achievements) - Span 4 */}
+            <div className="lg:col-span-4 space-y-8">
+              {/* Inventory Card */}
+              <div
+                onClick={() => setActiveModal('INVENTORY')}
+                className="bg-white p-6 rounded-xl shadow-[0_10px_30px_rgb(0,0,0,0.05)] border border-[#8b7d6b]/10 hover:border-[#8b7d6b]/30 transition-all cursor-pointer group relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-[#8b6508]/5 rounded-bl-full -mr-4 -mt-4 group-hover:bg-[#8b6508]/10 transition-colors"></div>
+                <h3 className="font-display text-xs text-[#8b7d6b] font-black uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                  <span>🗝️</span> KOLEKSİYON
+                </h3>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div
-                    onClick={() => setActiveModal('INVENTORY')}
-                    className="bg-white/60 p-4 rounded border border-[#8b7d6b]/20 text-center shadow-sm cursor-pointer hover:bg-[#8b7d6b]/10 transition-colors group"
-                  >
-                    <span className="block text-2xl mb-1 group-hover:scale-110 transition-transform">🗝️</span>
-                    <span className="block text-[#8b7d6b] font-display text-xl font-black">{user.unlockedKeys.length}</span>
-                    <span className="text-[8px] text-stone-500 uppercase font-black tracking-tighter group-hover:text-[#8b7d6b]">Mühür Koleksiyonu</span>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <span className="text-3xl font-black text-[#2c1e11]">{user.unlockedKeys.length}</span>
+                    <span className="text-xs font-bold text-stone-400 ml-1">/ {categories.reduce((acc, c) => acc + (c.nodes?.filter(n => n.rewardKeyId).length || 0) + (c.periods?.reduce((pAcc, p) => pAcc + p.nodes.filter(n => n.rewardKeyId).length, 0) || 0), 0)}</span>
                   </div>
-                  <div className="bg-white/60 p-4 rounded border border-[#8b7d6b]/20 text-center shadow-sm">
-                    <span className="block text-2xl mb-1">🤝</span>
-                    <span className="block text-[#8b7d6b] font-display text-xl font-black">{user.friends.length}</span>
-                    <span className="text-[8px] text-stone-500 uppercase font-black tracking-tighter">Dost</span>
-                  </div>
+                  <span className="text-[10px] font-bold text-[#8b6508] underline opacity-0 group-hover:opacity-100 transition-opacity">İNCELE →</span>
                 </div>
+              </div>
 
-                <div className="mt-6">
-                  <h4 className="text-[10px] font-black uppercase text-stone-400 mb-2 tracking-widest">BAŞARIMLAR</h4>
-                  <div className="flex gap-2 flex-wrap">
-                    {user.achievements.map((ach, idx) => (
-                      <span key={idx} className="px-2 py-1 bg-amber-100 text-amber-800 text-[9px] font-bold rounded border border-amber-200 uppercase tracking-wide">{ach.replace('_', ' ')}</span>
-                    ))}
-                    {user.achievements.length === 0 && <span className="text-[9px] text-stone-400 italic">Henüz başarım kilidi açılmadı.</span>}
-                  </div>
+              {/* Achievements Card */}
+              <div className="bg-white p-6 rounded-xl shadow-[0_10px_30px_rgb(0,0,0,0.05)] border border-[#8b7d6b]/10">
+                <h3 className="font-display text-xs text-[#8b7d6b] font-black uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                  <span>🏆</span> BAŞARIMLAR
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {user.achievements.map((ach, idx) => (
+                    <span key={idx} className="px-3 py-1.5 bg-[#f5f5f0] text-[#5a4d3b] text-[9px] font-bold rounded-full border border-[#dcdcd7] uppercase tracking-wide hover:bg-[#8b6508] hover:text-white transition-colors cursor-default">
+                      {ach.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                  {user.achievements.length === 0 && (
+                    <div className="text-center w-full py-4 text-stone-300 italic text-xs">Henüz bir efsane yazılmadı...</div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Orta Kolon: Sosyal Hub & Lonca */}
-            <div className="md:col-span-1 space-y-12">
-              <div className="bg-[#8b7d6b]/5 p-6 md:p-8 rounded border border-[#8b7d6b]/30 shadow-inner">
-                <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">MUHAFIZ BİRLİĞİ (LONCA)</h3>
+            {/* RIGHT COLUMN: Social (Guild & Friends) - Span 8 */}
+            <div className="lg:col-span-8 space-y-10">
+
+              {/* GUILD SECTION */}
+              <section>
+                <div className="flex justify-between items-end mb-6 pb-2 border-b border-[#8b7d6b]/10">
+                  <h3 className="font-display text-sm text-[#2c1e11] font-black uppercase tracking-[0.3em]">MUHAFIZ BİRLİĞİ</h3>
+                  {user.guildId && <span className="text-[10px] font-bold text-[#8b6508] bg-[#8b6508]/10 px-3 py-1 rounded-full">AKTİF ÜYE</span>}
+                </div>
+
                 {guild ? (
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <span className="text-2xl font-display text-stone-800 tracking-[0.2em] font-black">{guild.name.toUpperCase()}</span>
-                      <p className="text-[10px] text-stone-500 uppercase font-extrabold mt-2">{guild.members.length} AKTİF MUHAFIZ | {guild.totalScore} TOPLAM KUDRET</p>
-                      <p className="text-[9px] text-stone-400 italic mt-1">"{guild.description}"</p>
+                  <div className="bg-gradient-to-br from-[#2c1e11] to-[#1a1512] rounded-2xl p-8 relative overflow-hidden text-[#dcdcd7] shadow-xl">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                      <div>
+                        <h2 className="text-3xl font-display font-black tracking-widest text-[#efefef] mb-2">{guild.name.toUpperCase()}</h2>
+                        <p className="text-white/60 text-xs max-w-lg leading-relaxed italic mb-6">"{guild.description}"</p>
+                        <div className="flex gap-6">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-[#8b7d6b]">ÜYELER</span>
+                            <span className="text-xl font-black">{guild.members.length}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-[#8b7d6b]">KUDRET</span>
+                            <span className="text-xl font-black text-amber-500">{guild.totalScore}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        {/* <button className="px-6 py-3 bg-[#8b6508] text-white text-[10px] font-black tracking-[0.2em] uppercase rounded hover:bg-[#a0740a] transition-colors shadow-lg">
+                                LİDER TABLOSU
+                             </button> */}
+                        <button
+                          onClick={handleLeaveGuildAction}
+                          className="px-6 py-3 border border-white/20 text-white/50 text-[10px] font-black tracking-[0.2em] uppercase rounded hover:bg-red-900/50 hover:text-white hover:border-red-500/50 transition-all"
+                        >
+                          BİRLİKTEN AYRIL
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={handleLeaveGuildAction}
-                      className="text-[10px] text-red-800 border-2 border-red-800/30 px-5 py-2 hover:bg-red-800 hover:text-white transition-all uppercase font-black"
-                    >
-                      AYRIL
-                    </button>
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-stone-600 font-serif-vintage italic mb-6 text-lg">Henüz bir birliğe dahil olmadınız, muhafız.</p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                      <button
-                        onClick={handleOpenFindGuild}
-                        className="px-10 py-3 bg-[#8b7d6b] text-[#dcdcd7] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-black transition-all font-black shadow-lg"
-                      >
-                        LONCA BUL
-                      </button>
-                      <button
-                        onClick={() => setActiveModal('CREATE_GUILD')}
-                        className="px-10 py-3 border-2 border-[#8b7d6b] text-[#8b7d6b] font-display text-[10px] tracking-[0.3em] uppercase hover:bg-[#8b7d6b] hover:text-[#dcdcd7] transition-all font-black"
-                      >
-                        YENİ LONCA KUR
-                      </button>
+                  <div className="bg-[#f0f0eb] rounded-2xl p-8 border-2 border-dashed border-[#dcdcd7] flex flex-col items-center justify-center text-center">
+                    <div className="text-4xl mb-4 opacity-30">🛡️</div>
+                    <h3 className="text-lg font-display font-black text-[#5a4d3b] mb-2">BİR YOLDAŞLIK BUL</h3>
+                    <p className="text-xs text-stone-500 max-w-md mb-6 leading-relaxed">Tarihin tozlu sayfalarında yalnız yürümek zordur. Bir loncaya katılarak gücünü birleştir, efsaneleri birlikte çöz.</p>
+                    <div className="flex gap-4">
+                      <button onClick={handleOpenFindGuild} className="px-6 py-2 bg-[#2c1e11] text-white text-[10px] font-black uppercase tracking-widest rounded hover:bg-[#4a3b2a] transition-colors">LONCA ARA</button>
+                      <button onClick={() => setActiveModal('CREATE_GUILD')} className="px-6 py-2 border border-[#2c1e11] text-[#2c1e11] text-[10px] font-black uppercase tracking-widest rounded hover:bg-[#2c1e11] hover:text-white transition-colors">YENİ KUR</button>
                     </div>
                   </div>
                 )}
-              </div>
 
-              <GuildLeaderboard guilds={availableGuilds.length > 0 ? availableGuilds : []} />
+                <div className="mt-8">
+                  <GuildLeaderboard guilds={availableGuilds.length > 0 ? availableGuilds : []} />
+                </div>
+              </section>
 
-              <div>
-                <h3 className="font-display text-sm text-[#8b7d6b] uppercase tracking-[0.4em] mb-6 font-black border-b border-[#8b7d6b]/20 pb-3">DOSTLAR VE RAKİPLER</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* FRIENDS SECTION */}
+              <section>
+                <div className="flex justify-between items-end mb-6 pb-2 border-b border-[#8b7d6b]/10">
+                  <h3 className="font-display text-sm text-[#2c1e11] font-black uppercase tracking-[0.3em]">DOSTLAR & RAKİPLER</h3>
+                  <button onClick={() => setActiveModal('INVITE')} className="text-[10px] font-bold text-[#8b6508] hover:underline uppercase tracking-wider">+ MUHAFIZ EKLE</button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {user.friends.map(friend => (
-                    <div key={friend.id} className="flex items-center gap-5 bg-white/70 p-4 rounded border border-[#8b7d6b]/10 hover:border-[#8b7d6b]/40 transition-all shadow-sm">
-                      <div className={`w-3 h-3 rounded-full ${friend.status === 'ONLINE' ? 'bg-green-600 shadow-[0_0_10px_green]' : 'bg-stone-300'}`}></div>
-                      <div className="flex-grow">
-                        <span className="text-stone-800 font-display text-[11px] tracking-widest font-black">{friend.name.toUpperCase()}</span>
-                        <p className="text-[9px] text-stone-500 uppercase font-bold mt-1">SEVİYE {friend.level}</p>
+                    <div key={friend.id} className="bg-white p-4 rounded-lg shadow-sm border border-stone-100 flex items-center justify-between group hover:border-[#8b7d6b]/30 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-2 h-2 rounded-full ${friend.status === 'ONLINE' ? 'bg-green-500' : 'bg-stone-300'}`}></div>
+                        <div>
+                          <h4 className="font-display text-xs font-black text-[#2c1e11] tracking-wider">{friend.name}</h4>
+                          <span className="text-[9px] font-bold text-stone-400 uppercase">SEVİYE {friend.level}</span>
+                        </div>
                       </div>
-                      <button className="text-stone-300 hover:text-red-600 text-lg transition-colors font-bold">×</button>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => sendDuelInvite(user, friend.id)} className="w-8 h-8 rounded-full bg-[#f0f0eb] flex items-center justify-center text-xs hover:bg-[#8b6508] hover:text-white transition-colors" title="Düello Daveti">⚔️</button>
+                        {/* Delete friend logic could go here */}
+                      </div>
                     </div>
                   ))}
-                  <button
-                    onClick={() => setActiveModal('INVITE')}
-                    className="border-3 border-dashed border-[#8b7d6b]/20 p-4 rounded flex items-center justify-center text-stone-400 hover:border-[#8b7d6b]/50 hover:text-[#8b7d6b] transition-all text-[10px] font-black uppercase tracking-widest"
-                  >
-                    + YENİ DÜELLO / DOST ARA
-                  </button>
+                  {user.friends.length === 0 && (
+                    <div className="col-span-full py-8 text-center text-stone-400 text-xs italic bg-[#f9f9f9] rounded-lg border border-dashed border-stone-200">
+                      Listeniz boş. Yeni muhafızlar ekleyerek gücünüzü artırın.
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+              </section>
 
+            </div>
           </div> {/* End Grid */}
 
           <footer className="mt-16 pt-10 border-t-2 border-[#8b7d6b]/20 flex flex-col md:flex-row justify-between items-center gap-8">
